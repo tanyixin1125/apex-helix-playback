@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Helix — Part 1 parametric playback</title>
+  <style>
+    :root {
+      --bg: #121417;
+      --panel: #1a1d23;
+      --line: #2a2f38;
+      --text: #e8eaed;
+      --muted: #9aa3b2;
+      --accent: #4c8dff;
+      --lift: #5b9fd6;
+      --drop: #d46565;
+      --helix: #5cb87a;
+      --climb: #9b7ed4;
+      --brake: #e09a45;
+      --train: #f4d35e;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+    #app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+    header {
+      padding: 14px 20px 10px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 650; }
+    header p { margin: 0; color: var(--muted); }
+    .stage { position: relative; min-height: 0; }
+    canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+    canvas.dragging { cursor: grabbing; }
+    .hud {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; gap: 12px; pointer-events: none;
+    }
+    .card {
+      background: color-mix(in srgb, var(--panel) 92%, transparent);
+      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+      min-width: 220px; max-width: 420px;
+    }
+    .card h2 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+    .eq { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--text); }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 12px; color: var(--muted); }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; font-variant-numeric: tabular-nums; }
+    .stats b { display: block; font-size: 15px; font-weight: 650; }
+    .stats span { color: var(--muted); font-size: 11px; }
+    footer {
+      border-top: 1px solid var(--line); padding: 12px 20px 16px;
+      display: grid; gap: 10px; background: var(--panel);
+    }
+    .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    button {
+      background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+      padding: 7px 14px; font: 600 13px/1 "Segoe UI", system-ui, sans-serif; cursor: pointer;
+    }
+    button.ghost { background: #2a303a; color: var(--text); }
+    input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--accent); }
+    .t-readout { font-variant-numeric: tabular-nums; min-width: 168px; color: var(--muted); }
+    .hint { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Apex Helix — initial kinematic model</h1>
+      <p>r(t) = ⟨x(t), y(t), z(t)⟩ &nbsp;·&nbsp; five C¹ segments &nbsp;·&nbsp; t treated as time</p>
+    </header>
+    <div class="stage">
+      <canvas id="view"></canvas>
+      <div class="hud">
+        <div class="card">
+          <h2>Current segment</h2>
+          <div id="seg-name" style="font-weight:650;margin-bottom:6px">Lift hill</div>
+          <div class="eq" id="eq"></div>
+        </div>
+        <div class="card">
+          <h2>State at t</h2>
+          <div class="stats" id="stats"></div>
+        </div>
+      </div>
+    </div>
+    <footer>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--lift)"></i>1 Lift 0–10</span>
+        <span><i class="swatch" style="background:var(--drop)"></i>2 Crest & drop 10–14</span>
+        <span><i class="swatch" style="background:var(--helix)"></i>3 Helix 14–14+2π</span>
+        <span><i class="swatch" style="background:var(--climb)"></i>4 Climb 14+2π–18+2π</span>
+        <span><i class="swatch" style="background:var(--brake)"></i>5 Brake run 18+2π–23+2π</span>
+      </div>
+      <div class="controls">
+        <button id="play" type="button">Pause</button>
+        <button id="reset" class="ghost" type="button">Reset</button>
+        <input id="time" type="range" min="0" max="29.283" step="0.01" value="0" />
+        <div class="t-readout" id="tread">t = 0.00 s</div>
+        <label class="hint">Speed
+          <select id="rate">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+      </div>
+      <div class="hint">Drag to orbit · scroll to zoom · Space plays or pauses. Automatic playback advances the time parameter t along the piecewise centreline.</div>
+    </footer>
+  </div>
+  <script>
+    const PI = Math.PI;
+    const T3 = 14 + 2 * PI;
+    const T4 = T3 + 4;
+    const T5 = T4 + 5;
+    const G = 9.8;
+    const COLORS = ["#5b9fd6", "#d46565", "#5cb87a", "#9b7ed4", "#e09a45"];
+    const NAMES = [
+      "1  Parabolic lift hill",
+      "2  Cubic crest & first drop",
+      "3  Circular descending helix",
+      "4  Cubic climb back to station",
+      "5  Straight level brake run",
+    ];
+    const EQS = [
+      "r₁(t) = ⟨4t, 2t, (3/10)t²⟩   0 ≤ t ≤ 10",
+      "r₂(t) with u = (t−10)/4\n⟨40+16u+40u²−32u³, 20+8u−64u²+56u³, 30+24u−82u²+44u³⟩",
+      "r₃(t) = ⟨52+12 cos(t−14), 20+12 sin(t−14), 16−2(t−14)⟩",
+      "r₄(t) with u = (t−14−2π)/4\ncubic Hermite from helix exit to (80, 40, 30)",
+      "r₅(t) = ⟨80+20u, 40+10u, 30⟩   u = (t−18−2π)/5",
+    ];
+
+    function segIndex(t) {
+      if (t < 10) return 0;
+      if (t < 14) return 1;
+      if (t < T3) return 2;
+      if (t < T4) return 3;
+      return 4;
+    }
+    function r(t) {
+      if (t <= 10) return [4*t, 2*t, 0.3*t*t];
+      if (t <= 14) {
+        const u = (t-10)/4, u2 = u*u, u3 = u2*u;
+        return [40+16*u+40*u2-32*u3, 20+8*u-64*u2+56*u3, 30+24*u-82*u2+44*u3];
+      }
+      if (t <= T3) {
+        const tau = t-14;
+        return [52+12*Math.cos(tau), 20+12*Math.sin(tau), 16-2*tau];
+      }
+      if (t <= T4) {
+        const u = (t-T3)/4, u2 = u*u, u3 = u2*u;
+        return [
+          64+32*u2-16*u3,
+          20+48*u-44*u2+16*u3,
+          (16-4*PI)-8*u+(58+12*PI)*u2+(-36-8*PI)*u3,
+        ];
+      }
+      const u = Math.min(1, (t-T4)/5);
+      return [80+20*u, 40+10*u, 30];
+    }
+    function rp(t) {
+      if (t <= 10) return [4, 2, 0.6*t];
+      if (t <= 14) {
+        const u = (t-10)/4;
+        return [(16+80*u-96*u*u)/4, (8-128*u+168*u*u)/4, (24-164*u+132*u*u)/4];
+      }
+      if (t <= T3) {
+        const tau = t-14;
+        return [-12*Math.sin(tau), 12*Math.cos(tau), -2];
+      }
+      if (t <= T4) {
+        const u = (t-T3)/4;
+        return [
+          (64*u-48*u*u)/4,
+          (48-88*u+48*u*u)/4,
+          (-8+2*(58+12*PI)*u+3*(-36-8*PI)*u*u)/4,
+        ];
+      }
+      return [4, 2, 0];
+    }
+    function rpp(t) {
+      if (t <= 10) return [0, 0, 0.6];
+      if (t <= 14) {
+        const u = (t-10)/4;
+        return [(80-192*u)/16, (-128+336*u)/16, (-164+264*u)/16];
+      }
+      if (t <= T3) {
+        const tau = t-14;
+        return [-12*Math.cos(tau), -12*Math.sin(tau), 0];
+      }
+      if (t <= T4) {
+        const u = (t-T3)/4;
+        return [
+          (64-96*u)/16,
+          (-88+96*u)/16,
+          (2*(58+12*PI)+6*(-36-8*PI)*u)/16,
+        ];
+      }
+      return [0, 0, 0];
+    }
+    function mag(v) { return Math.hypot(v[0], v[1], v[2]); }
+    function cross(a, b) {
+      return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+    }
+    function add(a, b, s=1) { return [a[0]+s*b[0], a[1]+s*b[1], a[2]+s*b[2]]; }
+    function norm(v) {
+      const m = mag(v) || 1;
+      return [v[0]/m, v[1]/m, v[2]/m];
+    }
+
+    const SAMPLES = [];
+    (function build() {
+      const n = 900;
+      for (let i = 0; i <= n; i++) {
+        const t = T5 * i / n;
+        const p = r(t), v = rp(t), a = rpp(t);
+        const speed = mag(v);
+        const aN = speed > 1e-9 ? mag(cross(v, a)) / speed : 0;
+        SAMPLES.push({ t, p, v, speed, aN, id: segIndex(t) });
+      }
+    })();
+
+    const canvas = document.getElementById("view");
+    const ctx = canvas.getContext("2d");
+    const cam = { az: 0.95, el: 0.58, dist: 210, target: [52, 26, 16] };
+    let t = 0, playing = true, rate = 1, last = performance.now();
+
+    function project(p) {
+      const x = p[0] - cam.target[0];
+      const y = p[1] - cam.target[1];
+      const z = p[2] - cam.target[2];
+      const ca = Math.cos(-cam.az), sa = Math.sin(-cam.az);
+      const x1 = x*ca - y*sa;
+      const y1 = x*sa + y*ca;
+      const ce = Math.cos(cam.el), se = Math.sin(cam.el);
+      const y2 = y1*ce - z*se;
+      const z2 = y1*se + z*ce;
+      const depth = cam.dist + y2;
+      const f = 520;
+      const s = f / Math.max(40, depth);
+      return {
+        x: canvas.width / 2 + x1 * s,
+        y: canvas.height * 0.58 - z2 * s,
+        depth,
+        s,
+      };
+    }
+
+    function draw() {
+      const w = canvas.width, h = canvas.height;
+      ctx.fillStyle = "#121417";
+      ctx.fillRect(0, 0, w, h);
+
+      // ground grid
+      ctx.beginPath();
+      ctx.strokeStyle = "#242a33";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 100; x += 10) {
+        const a = project([x, 0, 0]), b = project([x, 55, 0]);
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      }
+      for (let y = 0; y <= 55; y += 5) {
+        const a = project([0, y, 0]), b = project([100, y, 0]);
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      }
+      ctx.stroke();
+
+      // shadow
+      ctx.beginPath();
+      ctx.strokeStyle = "#2c333d";
+      ctx.lineWidth = 2;
+      SAMPLES.forEach((s, i) => {
+        const q = project([s.p[0], s.p[1], 0]);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      });
+      ctx.stroke();
+
+      // supports (every ~18 samples)
+      for (let i = 0; i < SAMPLES.length; i += 22) {
+        const p = SAMPLES[i].p;
+        if (p[2] < 2) continue;
+        const a = project([p[0], p[1], 0]);
+        const b = project(p);
+        ctx.strokeStyle = "#3a414c";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      // full track, then travelled portion thicker
+      function strokeTrack(upto, width, alphaScale) {
+        let cur = -1;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        for (let i = 0; i < SAMPLES.length; i++) {
+          const s = SAMPLES[i];
+          if (s.t > upto) break;
+          if (s.id !== cur) {
+            if (cur >= 0) ctx.stroke();
+            cur = s.id;
+            ctx.beginPath();
+            ctx.strokeStyle = COLORS[cur];
+            ctx.globalAlpha = alphaScale;
+            ctx.lineWidth = width;
+            const q = project(s.p);
+            ctx.moveTo(q.x, q.y);
+          } else {
+            const q = project(s.p);
+            ctx.lineTo(q.x, q.y);
+          }
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      strokeTrack(T5, 3.2, 0.35);
+      strokeTrack(t, 6.2, 1);
+
+      const pos = r(t);
+      const vel = rp(t);
+      const acc = rpp(t);
+      const q = project(pos);
+      const heading = norm(vel);
+      const nose = project(add(pos, heading, 3.2));
+      ctx.fillStyle = "#f4d35e";
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, Math.max(5, q.s * 1.35), 0, PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#1a1d23";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.strokeStyle = "#f4d35e";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(q.x, q.y);
+      ctx.lineTo(nose.x, nose.y);
+      ctx.stroke();
+
+      const waypoints = [
+        [[0,0,0],"L"], [[40,20,30],"P₁"], [[64,20,16],"P₂"],
+        [[64,20,16-4*PI],"P₃"], [[80,40,30],"P₄"], [[100,50,30],"H"],
+      ];
+      ctx.font = "12px Segoe UI, system-ui, sans-serif";
+      ctx.fillStyle = "#e8eaed";
+      waypoints.forEach(([p, lab]) => {
+        const s = project(p);
+        ctx.beginPath();
+        ctx.fillStyle = "#e8eaed";
+        ctx.arc(s.x, s.y, 3.2, 0, PI*2);
+        ctx.fill();
+        ctx.fillText(lab, s.x + 6, s.y - 6);
+      });
+
+      const id = segIndex(t);
+      document.getElementById("seg-name").textContent = NAMES[id];
+      document.getElementById("eq").textContent = EQS[id];
+      const speed = mag(vel);
+      const aN = speed > 1e-9 ? mag(cross(vel, acc)) / speed : 0;
+      document.getElementById("stats").innerHTML = `
+        <div><b>${t.toFixed(2)} s</b><span>time parameter t</span></div>
+        <div><b>${speed.toFixed(2)} m/s</b><span>|r′(t)| kinematic speed</span></div>
+        <div><b>${pos[0].toFixed(1)}, ${pos[1].toFixed(1)}, ${pos[2].toFixed(1)}</b><span>position r(t) (m)</span></div>
+        <div><b>${(aN/G).toFixed(2)} g</b><span>normal acceleration a_N</span></div>`;
+      document.getElementById("tread").textContent = `t = ${t.toFixed(2)} s  /  ${T5.toFixed(2)} s`;
+      document.getElementById("time").value = String(t);
+    }
+
+    function resize() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      draw();
+    }
+    window.addEventListener("resize", resize);
+
+    function tick(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (playing) {
+        t += dt * rate;
+        if (t > T5) t = 0;
+      }
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    const playBtn = document.getElementById("play");
+    playBtn.onclick = () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "Pause" : "Play";
+    };
+    document.getElementById("reset").onclick = () => { t = 0; draw(); };
+    document.getElementById("time").oninput = (e) => {
+      t = Number(e.target.value);
+      playing = false;
+      playBtn.textContent = "Play";
+      draw();
+    };
+    document.getElementById("rate").onchange = (e) => { rate = Number(e.target.value); };
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        playBtn.click();
+      }
+    });
+
+    let drag = false, lx = 0, ly = 0;
+    canvas.addEventListener("pointerdown", (e) => {
+      drag = true; lx = e.clientX; ly = e.clientY;
+      canvas.classList.add("dragging");
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointerup", () => {
+      drag = false; canvas.classList.remove("dragging");
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      cam.az += (e.clientX - lx) * 0.008;
+      cam.el = Math.min(1.2, Math.max(0.12, cam.el + (e.clientY - ly) * 0.008));
+      lx = e.clientX; ly = e.clientY;
+    });
+    canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      cam.dist = Math.min(420, Math.max(90, cam.dist + e.deltaY * 0.18));
+    }, { passive: false });
+
+    resize();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
