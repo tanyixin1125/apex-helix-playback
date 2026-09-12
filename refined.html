@@ -60,7 +60,7 @@
   <div id="app">
     <header>
       <h1>Apex Helix — refined energy model</h1>
-      <p>½v² + gz = constant after the lift · G¹ cubic Hermite · banked helix ·
+      <p>½v² + gz = constant after the lift · geometric C² quintic Hermite · banked helix ·
         <a href="./">Part 1 kinematic playback</a></p>
     </header>
     <div class="stage">
@@ -114,15 +114,15 @@
       "1  Cubic lift hill",
       "2  Cubic Hermite crest and first drop",
       "3  Banked descending helix",
-      "4  Cubic Hermite climb",
+      "4  Quintic Hermite climb",
       "5  Straight level brake run",
     ];
     const EQS = [
       "r₁(t) = ⟨4t, 2t, −0.03t³ + 0.60t²⟩\n0 ≤ t ≤ 10   ·   chain speed v = 4 m/s",
-      "r₂(u) = H₀₀(u)P₁ + H₁₀(u) λ₀ T̂₁ + H₀₁(u)P₂ + H₁₁(u) λ₁ T̂_hel\nλ₀ = 24, λ₁ = 28,  u ∈ [0, 1]",
+      "r₂(u) quintic Hermite  C⁰ + G¹ + geometric C²\nλ₀ = 24, λ₁ = 28,  matches κN at P₁ and P₂",
       "C ≈ (62.26, 15.48),  R = 14 m,  z = 22 − τ\n(x, y) = C + R_τ (P₂ − C),  0 ≤ τ ≤ 2π",
-      "r₄(u) cubic Hermite  P₃ → P₄\nλ₀ = 34, λ₁ = 26,  T̂ from helix to ⟨2, 1, 0⟩/√5",
-      "r₅(u) = (80, 40, 30) + u⟨20, 10, 0⟩\nκ = 0,  z = 30,  v_H = 5.97 m/s",
+      "r₄(u) quintic Hermite  P₃ → P₄\nλ₀ = 34, λ₁ = 26,  geometric C² into the station",
+      "r₅(u) = (80, 40, 30) + u⟨20, 10, 0⟩\nκ = 0,  z = 30,  v_H = 7.01 m/s",
     ];
 
     function lerpSample(time) {
