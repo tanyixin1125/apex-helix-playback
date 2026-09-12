@@ -34,7 +34,7 @@
     .tab.on.compare { background: #8a6d3b; border-color: #8a6d3b; }
     .seg.on { background: #3a4658; border-color: #6d8eb8; }
     .story {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 20px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 20px;
       border-bottom: 1px solid var(--line); background: #14181f;
     }
     .story.single-before { grid-template-columns: 1fr; }
@@ -51,7 +51,7 @@
     }
     .card-story.before h3 { color: #e39a9a; }
     .card-story.after h3 { color: #8fd4b0; }
-    .card-story p { margin: 0; font-size: 12.5px; color: #d5dae3; }
+    .card-story p { margin: 0; font-size: 12px; color: #d5dae3; max-height: 4.6em; overflow: hidden; }
     .stage { position: relative; min-height: 0; display: grid; }
     .stage.single { grid-template-columns: 1fr; }
     .stage.split { grid-template-columns: 1fr 1fr; }
@@ -250,10 +250,10 @@
       const samples = DATA[key].samples;
       const segs = DATA[key].meta.segments || [];
       if (seg < 0 || !segs[seg]) {
-        return { t0: samples[0].time, t1: samples[samples.length-1].time, target: [58, 20, 14], dist: 168 };
+        return { t0: samples[0].time, t1: samples[samples.length-1].time, target: [58, 20, 14], dist: 138 };
       }
       const row = segs[seg];
-      const dist = [145, 120, 125, 130, 122][seg];
+      const dist = [118, 100, 92, 108, 100][seg];
       return { t0: row.t0, t1: row.t1, target: row.target, dist };
     }
 
@@ -262,7 +262,7 @@
       return w.t0 + frac * Math.max(1e-6, w.t1 - w.t0);
     }
 
-    function makeCam() { return { az: 0.68, el: 0.30, dist: 168, target: [58, 20, 14] }; }
+    function makeCam() { return { az: 0.62, el: 0.24, dist: 138, target: [58, 20, 14] }; }
     const camA = makeCam(), camB = makeCam();
 
     function applyCam(cam, key, seg) {
@@ -285,8 +285,8 @@
       const ce = Math.cos(cam.el), se = Math.sin(cam.el);
       const y2 = y1*ce - z*se, z2 = y1*se + z*ce;
       const depth = cam.dist + y2;
-      const s = 520 / Math.max(40, depth);
-      return { x: canvas.width/2 + x1*s, y: canvas.height*0.58 - z2*s, s, depth };
+      const s = 780 / Math.max(36, depth);
+      return { x: canvas.width/2 + x1*s, y: canvas.height*0.62 - z2*s, s, depth };
     }
 
     function nrm(v) {
