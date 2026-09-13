@@ -60,17 +60,21 @@
     canvas { display: block; width: 100%; height: 100%; cursor: grab; }
     canvas.dragging { cursor: grabbing; }
     .hud {
-      position: absolute; top: 10px; left: 10px; right: 10px;
-      display: flex; justify-content: space-between; gap: 8px; pointer-events: none;
+      position: absolute; top: 8px; left: 8px; right: 8px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 8px; pointer-events: none;
     }
     .card {
-      background: color-mix(in srgb, var(--panel) 92%, transparent);
-      border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
-      min-width: 180px; max-width: 360px;
+      background: rgba(20, 24, 31, 0.72);
+      border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+      min-width: 140px; max-width: 250px;
+      backdrop-filter: blur(4px);
     }
+    .stage.split .card { max-width: 190px; }
+    .stage.split .eq { display: none; }
     .card h2 { margin: 0 0 4px; font-size: 10px; letter-spacing: 0.05em;
       text-transform: uppercase; color: var(--muted); font-weight: 650; }
-    .eq { font-family: Consolas, monospace; font-size: 11px; white-space: pre-wrap; }
+    .eq { font-family: Consolas, monospace; font-size: 10px; white-space: pre-wrap; max-height: 2.8em; overflow: hidden; }
     .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-variant-numeric: tabular-nums; }
     .stats b { display: block; font-size: 14px; }
     .stats span { color: var(--muted); font-size: 10px; }
@@ -324,7 +328,7 @@
       const info = INFO[key];
       const cur = lerp(samples, fracToTime(key, frac, focus));
       const designed = key === "final";
-      const half = designed ? 2.6 : 0.7;
+      const half = designed ? 2.0 : 0.7;
 
       const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
       sky.addColorStop(0, designed ? "#141c28" : "#101318");
@@ -342,89 +346,119 @@
         ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
       }
       ctx.stroke();
-      ctx.beginPath(); ctx.strokeStyle = "#2c333d"; ctx.lineWidth = 2;
-      samples.forEach((s,i) => {
+      ctx.beginPath(); ctx.strokeStyle = "rgba(44,51,61,0.55)"; ctx.lineWidth = 1.5;
+      let shadowStarted = false;
+      samples.forEach((s) => {
+        if (s.id === 2) {
+          if (shadowStarted) { ctx.stroke(); shadowStarted = false; }
+          return;
+        }
         const q = project(cam, canvas, [s.p[0], s.p[1], 0]);
-        if (i===0) ctx.moveTo(q.x,q.y); else ctx.lineTo(q.x,q.y);
+        if (!shadowStarted) { ctx.moveTo(q.x, q.y); shadowStarted = true; }
+        else ctx.lineTo(q.x, q.y);
       });
-      ctx.stroke();
+      if (shadowStarted) ctx.stroke();
 
       if (designed) {
         ctx.lineCap = "round";
         samples.forEach((s, i) => {
-          if (i % (s.id === 2 ? 10 : 7) !== 0 || s.p[2] < 2.5) return;
+          if (s.id === 2 || s.p[2] < 3) return;
+          if (i % 8 !== 0) return;
           if (focus >= 0 && s.id !== focus) return;
           const top = project(cam, canvas, s.p);
           const bot = project(cam, canvas, [s.p[0], s.p[1], 0]);
-          ctx.strokeStyle = "rgba(90,100,112,0.35)";
-          ctx.lineWidth = Math.max(1, top.s * 0.12);
+          ctx.strokeStyle = "rgba(90,100,112,0.22)";
+          ctx.lineWidth = Math.max(1, top.s * 0.10);
           ctx.beginPath(); ctx.moveTo(bot.x, bot.y); ctx.lineTo(top.x, top.y); ctx.stroke();
         });
       }
 
-      const quads = [];
-      for (let i = 0; i < samples.length - 1; i++) {
-        const a = samples[i], b = samples[i+1];
-        const mid = [(a.p[0]+b.p[0])/2, (a.p[1]+b.p[1])/2, (a.p[2]+b.p[2])/2];
-        const pr = project(cam, canvas, mid);
-        quads.push({ a, b, depth: pr.depth, traveled: b.time <= cur.time });
-      }
-      quads.sort((p, q) => q.depth - p.depth);
-
-      quads.forEach(q => {
-        const faded = focus >= 0 && q.a.id !== focus;
-        const A = railsOf(q.a, half), B = railsOf(q.b, half);
-        const pAL = project(cam, canvas, A.L), pAR = project(cam, canvas, A.R);
-        const pBL = project(cam, canvas, B.L), pBR = project(cam, canvas, B.R);
-        const col = COLORS[q.a.id];
-        let alpha = faded ? 0.12 : (q.traveled ? 0.70 : 0.30);
-        if (!designed) alpha *= 0.8;
-        ctx.beginPath();
-        ctx.moveTo(pAL.x, pAL.y); ctx.lineTo(pAR.x, pAR.y);
-        ctx.lineTo(pBR.x, pBR.y); ctx.lineTo(pBL.x, pBL.y); ctx.closePath();
-        ctx.fillStyle = rgba(col, alpha);
-        ctx.fill();
-        ctx.strokeStyle = rgba("#e8eef6", faded ? 0.14 : (q.traveled ? 0.95 : 0.38));
-        ctx.lineWidth = designed ? Math.max(1.6, pAL.s * 0.28) : Math.max(1.0, pAL.s * 0.14);
-        ctx.beginPath(); ctx.moveTo(pAL.x, pAL.y); ctx.lineTo(pBL.x, pBL.y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(pAR.x, pAR.y); ctx.lineTo(pBR.x, pBR.y); ctx.stroke();
-        if (designed && q.a.id === 2 && !faded && q.traveled && (q.a.s % 4) < 0.55) {
-          ctx.strokeStyle = "rgba(255,255,255,0.28)";
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(pAL.x, pAL.y); ctx.lineTo(pAR.x, pAR.y); ctx.stroke();
+      function strokeCenter(upto, width, alpha, onlyId) {
+        let curId = -1;
+        ctx.lineCap = "round"; ctx.lineJoin = "round";
+        for (const s of samples) {
+          if (s.time > upto) break;
+          if (onlyId >= 0 && s.id !== onlyId) {
+            if (curId >= 0) { ctx.stroke(); curId = -1; }
+            continue;
+          }
+          if (s.id !== curId) {
+            if (curId >= 0) ctx.stroke();
+            curId = s.id;
+            ctx.beginPath();
+            ctx.strokeStyle = COLORS[curId];
+            ctx.globalAlpha = alpha;
+            ctx.lineWidth = width;
+            const q = project(cam, canvas, s.p);
+            ctx.moveTo(q.x, q.y);
+          } else {
+            const q = project(cam, canvas, s.p);
+            ctx.lineTo(q.x, q.y);
+          }
         }
-      });
+        if (curId >= 0) ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      strokeCenter(samples[samples.length-1].time, designed ? 2.2 : 2.6, 0.22, -1);
+      if (focus >= 0) strokeCenter(samples[samples.length-1].time, designed ? 2.6 : 3.0, 0.18, focus);
 
       if (designed) {
-        samples.forEach(s => {
-          if (s.time > cur.time || s.time < cur.time - 2.2) return;
-          if (focus >= 0 && s.id !== focus) return;
-          const q = project(cam, canvas, s.p);
-          const age = (cur.time - s.time) / 2.2;
-          ctx.fillStyle = `rgba(244,211,94,${0.18 * (1-age)})`;
-          ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(3, q.s * (1.6 - age)), 0, Math.PI*2); ctx.fill();
+        const quads = [];
+        for (let i = 0; i < samples.length - 1; i++) {
+          const a = samples[i], b = samples[i+1];
+          if (b.time > cur.time) break;
+          if (focus >= 0 && a.id !== focus) continue;
+          const mid = [(a.p[0]+b.p[0])/2, (a.p[1]+b.p[1])/2, (a.p[2]+b.p[2])/2];
+          quads.push({ a, b, depth: project(cam, canvas, mid).depth });
+        }
+        quads.sort((p, q) => q.depth - p.depth);
+        quads.forEach(q => {
+          const A = railsOf(q.a, half), B = railsOf(q.b, half);
+          const pAL = project(cam, canvas, A.L), pAR = project(cam, canvas, A.R);
+          const pBL = project(cam, canvas, B.L), pBR = project(cam, canvas, B.R);
+          const col = COLORS[q.a.id];
+          ctx.beginPath();
+          ctx.moveTo(pAL.x, pAL.y); ctx.lineTo(pAR.x, pAR.y);
+          ctx.lineTo(pBR.x, pBR.y); ctx.lineTo(pBL.x, pBL.y); ctx.closePath();
+          ctx.fillStyle = rgba(col, q.a.id === 2 ? 0.42 : 0.34);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(232,238,246,0.88)";
+          ctx.lineWidth = Math.max(1.2, pAL.s * 0.20);
+          ctx.beginPath(); ctx.moveTo(pAL.x, pAL.y); ctx.lineTo(pBL.x, pBL.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(pAR.x, pAR.y); ctx.lineTo(pBR.x, pBR.y); ctx.stroke();
         });
+      } else {
+        strokeCenter(cur.time, 5.5, 1, focus >= 0 ? focus : -1);
       }
 
-      const cars = designed ? [-1.8, 0, 1.8] : [0];
-      cars.forEach((off, k) => {
-        const T = nrm(cur.T || [1, 0, 0]);
-        const p = add(cur.p, T, off);
-        const q = project(cam, canvas, p);
-        ctx.fillStyle = k === 1 || cars.length === 1 ? "#f4d35e" : "#e7c45a";
-        ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(4, q.s * (k === 1 ? 1.45 : 1.15)), 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
-      });
+      const qCar = project(cam, canvas, cur.p);
+      ctx.fillStyle = "#f4d35e";
+      ctx.beginPath(); ctx.arc(qCar.x, qCar.y, Math.max(5, qCar.s * 1.35), 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
 
       const wps = key === "initial"
-        ? [[[0,0,0],"L"],[[40,20,30],"P₁"],[[64,20,16],"P₂"],[[64,20,16-4*Math.PI],"P₃"],[[80,40,30],"P₄"],[[100,50,30],"H"]]
-        : [[[0,0,0],"L"],[[40,20,30],"P₁"],[[56,28,22],"P₂"],[[56,28,22-2.5*Math.PI],"P₃"],[[80,40,30],"P₄"],[[100,50,30],"H"]];
+        ? [
+            [[0,0,0],"L",-14,12],
+            [[40,20,30],"P₁",8,-12],
+            [[64,20,16],"P₂",10,-16],
+            [[64,20,16-4*Math.PI],"P₃",-26,14],
+            [[80,40,30],"P₄",8,-12],
+            [[100,50,30],"H",8,-8],
+          ]
+        : [
+            [[0,0,0],"L",-14,12],
+            [[40,20,30],"P₁",8,-12],
+            [[56,28,22],"P₂",12,-16],
+            [[56,28,22-2.5*Math.PI],"P₃",-28,16],
+            [[80,40,30],"P₄",8,-12],
+            [[100,50,30],"H",8,-8],
+          ];
       ctx.font = "12px Segoe UI, system-ui, sans-serif";
-      wps.forEach(([p,lab]) => {
+      wps.forEach(([p,lab,dx,dy]) => {
         const s = project(cam, canvas, p);
         ctx.fillStyle = "#e8eaed";
         ctx.beginPath(); ctx.arc(s.x,s.y,3,0,Math.PI*2); ctx.fill();
-        ctx.fillText(lab, s.x+6, s.y-6);
+        ctx.fillText(lab, s.x+dx, s.y+dy);
       });
       return { cur, info };
     }
@@ -463,20 +497,16 @@
       const bank = key==="final" && cur.id===2 ? cur.bank.toFixed(1)+"°" : "—";
       if (key === "initial") {
         document.getElementById("st"+prefix).innerHTML =
-          `<div><b>${cur.time.toFixed(2)} s</b><span>parameter t as time</span></div>
-           <div><b>${cur.v.toFixed(2)} m/s</b><span>kinematic |r′|</span></div>
-           <div><b>${(cur.v_e ?? cur.v).toFixed(2)} m/s</b><span>if energy were used</span></div>
-           <div><b>${cur.aN_g.toFixed(2)} g</b><span>kinematic a_N</span></div>
-           <div><b>${(cur.aN_e_g ?? cur.aN_g).toFixed(2)} g</b><span>energy a_N on this shape</span></div>
-           <div><b>${cur.p[0].toFixed(1)}, ${cur.p[1].toFixed(1)}, ${cur.p[2].toFixed(1)}</b><span>position (m)</span></div>`;
+          `<div><b>${cur.v.toFixed(2)} / ${(cur.v_e ?? cur.v).toFixed(2)}</b><span>kinematic / energy v (m/s)</span></div>
+           <div><b>${cur.aN_g.toFixed(2)} / ${(cur.aN_e_g ?? cur.aN_g).toFixed(2)} g</b><span>kinematic / energy a_N</span></div>
+           <div><b>${cur.p[2].toFixed(1)} m</b><span>height z</span></div>
+           <div><b>${cur.time.toFixed(2)} s</b><span>parameter t</span></div>`;
       } else {
         document.getElementById("st"+prefix).innerHTML =
-          `<div><b>${cur.time.toFixed(2)} s</b><span>${info.timeNote}</span></div>
-           <div><b>${cur.v.toFixed(2)} m/s</b><span>${info.speedNote}</span></div>
-           <div><b>${(cur.aT ?? 0).toFixed(2)} m/s²</b><span>a_T = −g dz/ds</span></div>
+          `<div><b>${cur.v.toFixed(2)} m/s</b><span>energy speed</span></div>
            <div><b>${cur.aN_g.toFixed(2)} g</b><span>normal a_N</span></div>
-           <div><b>${Math.abs(cur.nl_g).toFixed(2)} g</b><span>unbanked |n_lat|</span></div>
-           <div><b>${bank}</b><span>ideal bank</span></div>`;
+           <div><b>${bank}</b><span>ideal bank</span></div>
+           <div><b>${cur.p[2].toFixed(1)} m</b><span>height z</span></div>`;
       }
     }
 
