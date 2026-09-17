@@ -114,17 +114,14 @@
       }
       const a = SAMPLES[lo], b = SAMPLES[hi];
       const f = (time - a.time) / Math.max(1e-9, b.time - a.time);
+      const Ta = a.T || [1, 0, 0], Tb = b.T || [1, 0, 0];
       return {
         s: a.s + f * (b.s - a.s), time,
         p: [a.p[0]+f*(b.p[0]-a.p[0]), a.p[1]+f*(b.p[1]-a.p[1]), a.p[2]+f*(b.p[2]-a.p[2])],
         v: a.v + f*(b.v-a.v), aN_g: a.aN_g + f*(b.aN_g-a.aN_g),
         n_g: (a.n_g ?? 1) + f*((b.n_g ?? 1)-(a.n_g ?? 1)),
         bank: (a.bank ?? 0) + f*((b.bank ?? 0)-(a.bank ?? 0)),
-        T: [
-          a.T[0]+f*(b.T[0]-a.T[0]),
-          a.T[1]+f*(b.T[1]-a.T[1]),
-          a.T[2]+f*(b.T[2]-a.T[2])
-        ],
+        T: [Ta[0]+f*(Tb[0]-Ta[0]), Ta[1]+f*(Tb[1]-Ta[1]), Ta[2]+f*(Tb[2]-Ta[2])],
         z: a.z + f*(b.z-a.z), id: f < 1 ? a.id : b.id
       };
     }
@@ -140,8 +137,6 @@
       const x1 = x*ca - y*sa, y1 = x*sa + y*ca;
       const ce = Math.cos(cam.el), se = Math.sin(cam.el);
       const y2 = y1*ce - z*se, z2 = y1*se + z*ce;
-      const depth = cam.dist + y2;
-      const s = 520 / Math.max(40, depth);
       const depth = cam.dist + y2;
       const s = 520 / Math.max(40, depth);
       return { x: canvas.width/2 + x1*s, y: canvas.height*0.58 - z2*s, s, depth };
