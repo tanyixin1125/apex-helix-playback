@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Helix V7 — airtime last two in Desmos 3D</title>
+  <style>
+    :root {
+      --bg: #121417; --panel: #1a1d23; --line: #2a2f38; --text: #e8eaed;
+      --muted: #9aa3b2; --lift: #5b9fd6; --drop: #d46565; --helix: #5cb87a;
+      --climb: #9b7ed4; --brake: #e09a45;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif; }
+    .wrap { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
+    aside { padding: 18px 18px 24px; border-right: 1px solid var(--line); overflow: auto; background: var(--panel); }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    .sub { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 0 0 14px; }
+    .seg { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; font-size: 13px; line-height: 1.4; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; flex: 0 0 10px; }
+    code { font-size: 11px; color: #c9d4e5; }
+    #calc { width: 100%; height: 100%; }
+    a { color: #8eb6ff; }
+    .note { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .ok { color: #8fd4b0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside>
+      <h1>V7 airtime last two</h1>
+      <p class="sub">Lift, crest and helix are unchanged. Only P3→P4→P5 are rewritten as C² quintic splines. A cubic can match <i>f</i> and <i>f'</i>; matching <i>f''</i> at the joins needs six conditions, so the unique interpolant is a quintic. Drag to rotate. Play slider <b>s</b>.</p>
+      <div class="seg"><span class="dot" style="background:var(--lift)"></span><div><b>1 Lift</b><br><code>(4t, 2t, −t³/20 + 9t²/10)</code></div></div>
+      <div class="seg"><span class="dot" style="background:var(--drop)"></span><div><b>2 Crest</b><br>quintic, C² at P₁ and P₂</div></div>
+      <div class="seg"><span class="dot" style="background:var(--helix)"></span><div><b>3 Helix</b><br><code>R = 20</code>, pitch <code>5/8</code>, <code>τ ∈ [0, 3π]</code></div></div>
+      <div class="seg"><span class="dot" style="background:var(--climb)"></span><div><b>4 Airtime crest</b><br>P₃ → P₄(63, 35, 35.4)<br>level crest, κ = 1/13, vertical g ≈ −0.08</div></div>
+      <div class="seg"><span class="dot" style="background:var(--brake)"></span><div><b>5 Flattened runout</b><br>P₄ → P₅ = H(100, 50, 30)<br>z' = 0 and κ = 0 at H</div></div>
+      <p class="note">
+        Same engine as <a href="https://www.desmos.com/3d" target="_blank" rel="noreferrer">desmos.com/3d</a>.
+        Site box 100 m × 50 m · a<sub>N</sub> ≤ 4g · C² at every join.
+        <span class="ok">Playback: <a href="airtime.html">airtime.html</a></span>
+      </p>
+    </aside>
+    <div id="calc"></div>
+  </div>
+  <script src="https://www.desmos.com/api/v1.12/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <script>
+    const elt = document.getElementById("calc");
+    const calc = Desmos.Calculator3D(elt, {
+      expressions: true,
+      settingsMenu: true,
+      zoomButtons: true,
+      keypad: false,
+    });
+    window.calc = calc;
+
+    const thin = 2.6;
+    const exprs = [
+      { id: "f_draw", type: "folder", title: "The five segments", collapsed: false },
+      { id: "r1", latex: "r_1(t)=\\left(4t,\\ 2t,\\ -\\frac{1}{20}t^3+\\frac{9}{10}t^2\\right)", folderId: "f_draw" },
+      { id: "c1", latex: "r_1(t)", domain: { min: "0", max: "10" }, color: "#5b9fd6", lineWidth: thin, folderId: "f_draw" },
+      { id: "r2d", latex: "r_2(u)=c_{20}+c_{21}u+c_{22}u^2+c_{23}u^3+c_{24}u^4+c_{25}u^5", folderId: "f_draw" },
+      { id: "c2", latex: "r_2(t)", domain: { min: "0", max: "1" }, color: "#d46565", lineWidth: thin, folderId: "f_draw" },
+      { id: "r3", latex: "r_3(t)=\\left(32.14-20\\sin t,\\ 26.43+20\\cos t,\\ 32-\\frac{5}{8}t\\right)", folderId: "f_draw" },
+      { id: "c3", latex: "r_3(t)", domain: { min: "0", max: "3\\pi" }, color: "#5cb87a", lineWidth: 3.2, folderId: "f_draw" },
+      { id: "r4d", latex: "r_4(u)=c_{40}+c_{41}u+c_{42}u^2+c_{43}u^3+c_{44}u^4+c_{45}u^5", folderId: "f_draw" },
+      { id: "c4", latex: "r_4(t)", domain: { min: "0", max: "1" }, color: "#9b7ed4", lineWidth: thin, folderId: "f_draw" },
+      { id: "r5d", latex: "r_5(u)=c_{50}+c_{51}u+c_{52}u^2+c_{53}u^3+c_{54}u^4+c_{55}u^5", folderId: "f_draw" },
+      { id: "c5", latex: "r_5(t)", domain: { min: "0", max: "1" }, color: "#e09a45", lineWidth: thin, folderId: "f_draw" },
+      { id: "s", latex: "s=0", sliderBounds: { min: "0", max: "5", step: "0.01" }, folderId: "f_draw" },
+      { id: "train", latex: "T=\\left\\{s\\le1:r_1(10s),s\\le2:r_2(s-1),s\\le3:r_3(3\\pi(s-2)),s\\le4:r_4(s-3),r_5(s-4)\\right\\}", hidden: true, folderId: "f_draw" },
+      { id: "pt", latex: "T", color: "#f4d35e", pointSize: 11, folderId: "f_draw" },
+
+      { id: "f_pts", type: "folder", title: "Waypoints", collapsed: false },
+      { id: "L", latex: "L=(0,0,0)", label: "L", showLabel: true, color: "#444444", folderId: "f_pts" },
+      { id: "P1", latex: "P_1=(40,20,40)", label: "P_1", showLabel: true, color: "#5b9fd6", folderId: "f_pts" },
+      { id: "P2", latex: "P_2=(32.14,46.43,32)", label: "P_2", showLabel: true, color: "#d46565", folderId: "f_pts" },
+      { id: "P3", latex: "P_3=\\left(32.14,\\ 6.43,\\ 32-\\frac{15\\pi}{8}\\right)", label: "P_3", showLabel: true, color: "#5cb87a", folderId: "f_pts" },
+      { id: "P4", latex: "P_4=(63,35,35.4)", label: "P_4", showLabel: true, color: "#9b7ed4", folderId: "f_pts" },
+      { id: "H", latex: "H=(100,50,30)", label: "P_5=H", showLabel: true, color: "#e09a45", folderId: "f_pts" },
+
+      { id: "f_blk", type: "folder", title: "C² spline building blocks", collapsed: true },
+      { id: "Kfn", latex: "K\\left(v,a\\right)=\\frac{a-v\\frac{v\\cdot a}{v\\cdot v}}{v\\cdot v}", folderId: "f_blk" },
+      { id: "T1", latex: "T_1=\\frac{(4,2,3)}{\\sqrt{29}}", folderId: "f_blk" },
+      { id: "U1", latex: "U_1=(4,2,3)", folderId: "f_blk" },
+      { id: "W1", latex: "W_1=(0,0,-1.2)", folderId: "f_blk" },
+      { id: "K1", latex: "K_1=K\\left(U_1,W_1\\right)", folderId: "f_blk" },
+      { id: "V30", latex: "V_{30}=(-20,0,-5/8)", folderId: "f_blk" },
+      { id: "T30", latex: "T_{30}=\\frac{V_{30}}{\\left|V_{30}\\right|}", folderId: "f_blk" },
+      { id: "A30", latex: "A_{30}=(0,-20,0)", folderId: "f_blk" },
+      { id: "K30", latex: "K_{30}=K\\left(V_{30},A_{30}\\right)", folderId: "f_blk" },
+      { id: "V31", latex: "V_{31}=(20,0,-5/8)", folderId: "f_blk" },
+      { id: "T31", latex: "T_{31}=\\frac{V_{31}}{\\left|V_{31}\\right|}", folderId: "f_blk" },
+      { id: "A31", latex: "A_{31}=(0,20,0)", folderId: "f_blk" },
+      { id: "K31", latex: "K_{31}=K\\left(V_{31},A_{31}\\right)", folderId: "f_blk" },
+      { id: "TH", latex: "T_H=\\frac{(2,1,0)}{\\sqrt{5}}", folderId: "f_blk" },
+      { id: "UH", latex: "U_H=(2,1,0)", folderId: "f_blk" },
+      { id: "WH", latex: "W_H=\\left(0,0,-\\frac{5}{13}\\right)", folderId: "f_blk" },
+      { id: "KH", latex: "K_H=K\\left(U_H,W_H\\right)", folderId: "f_blk" },
+      { id: "TE", latex: "T_E=(1,0,0)", folderId: "f_blk" },
+
+      { id: "D2", latex: "D_2=24T_1", folderId: "f_blk" },
+      { id: "A2", latex: "A_2=24^{2}K_1", folderId: "f_blk" },
+      { id: "E2", latex: "E_2=26T_{30}", folderId: "f_blk" },
+      { id: "B2", latex: "B_2=26^{2}K_{30}", folderId: "f_blk" },
+      { id: "c20", latex: "c_{20}=P_1", folderId: "f_blk" },
+      { id: "c21", latex: "c_{21}=D_2", folderId: "f_blk" },
+      { id: "c22", latex: "c_{22}=\\frac{1}{2}A_2", folderId: "f_blk" },
+      { id: "c23", latex: "c_{23}=10\\left(P_2-P_1\\right)-6D_2-4E_2-\\frac{3}{2}A_2+\\frac{1}{2}B_2", folderId: "f_blk" },
+      { id: "c24", latex: "c_{24}=-15\\left(P_2-P_1\\right)+8D_2+7E_2+\\frac{3}{2}A_2-B_2", folderId: "f_blk" },
+      { id: "c25", latex: "c_{25}=6\\left(P_2-P_1\\right)-3D_2-3E_2-\\frac{1}{2}A_2+\\frac{1}{2}B_2", folderId: "f_blk" },
+
+      { id: "D4", latex: "D_4=34T_{31}", folderId: "f_blk" },
+      { id: "A4", latex: "A_4=34^{2}K_{31}", folderId: "f_blk" },
+      { id: "E4", latex: "E_4=24T_H", folderId: "f_blk" },
+      { id: "B4", latex: "B_4=24^{2}K_H", folderId: "f_blk" },
+      { id: "c40", latex: "c_{40}=P_3", folderId: "f_blk" },
+      { id: "c41", latex: "c_{41}=D_4", folderId: "f_blk" },
+      { id: "c42", latex: "c_{42}=\\frac{1}{2}A_4", folderId: "f_blk" },
+      { id: "c43", latex: "c_{43}=10\\left(P_4-P_3\\right)-6D_4-4E_4-\\frac{3}{2}A_4+\\frac{1}{2}B_4", folderId: "f_blk" },
+      { id: "c44", latex: "c_{44}=-15\\left(P_4-P_3\\right)+8D_4+7E_4+\\frac{3}{2}A_4-B_4", folderId: "f_blk" },
+      { id: "c45", latex: "c_{45}=6\\left(P_4-P_3\\right)-3D_4-3E_4-\\frac{1}{2}A_4+\\frac{1}{2}B_4", folderId: "f_blk" },
+
+      { id: "D5", latex: "D_5=30T_H", folderId: "f_blk" },
+      { id: "A5", latex: "A_5=30^{2}K_H", folderId: "f_blk" },
+      { id: "E5", latex: "E_5=26T_E", folderId: "f_blk" },
+      { id: "B5", latex: "B_5=(0,0,0)", folderId: "f_blk" },
+      { id: "c50", latex: "c_{50}=P_4", folderId: "f_blk" },
+      { id: "c51", latex: "c_{51}=D_5", folderId: "f_blk" },
+      { id: "c52", latex: "c_{52}=\\frac{1}{2}A_5", folderId: "f_blk" },
+      { id: "c53", latex: "c_{53}=10\\left(H-P_4\\right)-6D_5-4E_5-\\frac{3}{2}A_5+\\frac{1}{2}B_5", folderId: "f_blk" },
+      { id: "c54", latex: "c_{54}=-15\\left(H-P_4\\right)+8D_5+7E_5+\\frac{3}{2}A_5-B_5", folderId: "f_blk" },
+      { id: "c55", latex: "c_{55}=6\\left(H-P_4\\right)-3D_5-3E_5-\\frac{1}{2}A_5+\\frac{1}{2}B_5", folderId: "f_blk" },
+
+      { id: "f_box", type: "folder", title: "Site box 100 × 50", collapsed: true },
+      { id: "box1", latex: "(100t,0,0)", domain: { min: "0", max: "1" }, color: "#666666", lineWidth: 1.5, lineOpacity: 0.45, folderId: "f_box" },
+      { id: "box2", latex: "(100,50t,0)", domain: { min: "0", max: "1" }, color: "#666666", lineWidth: 1.5, lineOpacity: 0.45, folderId: "f_box" },
+      { id: "box3", latex: "(100-100t,50,0)", domain: { min: "0", max: "1" }, color: "#666666", lineWidth: 1.5, lineOpacity: 0.45, folderId: "f_box" },
+      { id: "box4", latex: "(0,50-50t,0)", domain: { min: "0", max: "1" }, color: "#666666", lineWidth: 1.5, lineOpacity: 0.45, folderId: "f_box" },
+    ];
+
+    exprs.forEach((e) => calc.setExpression(e));
+
+    function fitTrack() {
+      const st = calc.getState();
+      if (!st.graph) return;
+      st.graph.viewport = { xmin: -8, xmax: 110, ymin: -20, ymax: 65, zmin: -8, zmax: 48 };
+      st.graph.__v12ViewportLatexStash = {
+        xmin: "-8", xmax: "110", ymin: "-20", ymax: "65", zmin: "-8", zmax: "48",
+      };
+      calc.setState(st);
+    }
+    setTimeout(fitTrack, 700);
+  </script>
+</body>
+</html>
