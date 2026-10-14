@@ -20,14 +20,14 @@
 <body>
   <div class="wrap">
     <aside>
-      <h1>Apex Helix — Part 2</h1>
-      <p>Refined track from L(0,0,0) to H(100,50,30). Drag to rotate. Move slider <b>s</b> to run the train. Coefficients are the Hermite values used in the report.</p>
+      <h1>Apex Helix — Part 2 refinement</h1>
+      <p>Final model from L(0, 0, 0) to H(100, 50, 30). Drag to rotate. Move slider <b>s</b> to run the train. Coefficients are the Hermite values from the refinement.</p>
       <div class="seg"><span class="dot" style="background:#2b6ea3"></span>Lift, chain speed 3 m/s</div>
       <div class="seg"><span class="dot" style="background:#c44b4b"></span>Quintic drop, G² at both ends</div>
       <div class="seg"><span class="dot" style="background:#2c8a5a"></span>Double helix, R = 18 m</div>
       <div class="seg"><span class="dot" style="background:#6d4ea3"></span>Quintic climb to P₄</div>
       <div class="seg"><span class="dot" style="background:#d4892a"></span>Level brake run to H</div>
-      <p>Same engine as <a href="https://www.desmos.com/3d" target="_blank" rel="noreferrer">desmos.com/3d</a>. Animation of the timed ride: <a href="animation.html">animation.html</a>.</p>
+      <p>Same engine as <a href="https://www.desmos.com/3d" target="_blank" rel="noreferrer">desmos.com/3d</a>. The ride animation can switch between the initial model and this final model: <a href="animation.html?model=final">animation</a>.</p>
     </aside>
     <div id="calc"></div>
   </div>
@@ -47,8 +47,8 @@
       { id: "c3", latex: "r_3(t)", domain: { min: "0", max: "4\\pi" }, color: "#2c8a5a", lineWidth: thin, folderId: "f" },
       { id: "r4", latex: "r_4(u)=\\left(83.9801+78.4067u-117.117u^2-364.668u^3+695.878u^4-296.481u^5,-32.2047+54.7878u+228.209u^2-394.196u^3+219.997u^4-36.5928u^5,3.43363-5.314u-1.9285u^2+303.333u^3-446.793u^4+177.269u^5\\right)", folderId: "f" },
       { id: "c4", latex: "r_4(u)", domain: { min: "0", max: "1" }, color: "#6d4ea3", lineWidth: thin, folderId: "f" },
-      { id: "r5", latex: "r_5(w)=\\left(80+20w,\\ 40+10w,\\ 30\\right)", folderId: "f" },
-      { id: "c5", latex: "r_5(w)", domain: { min: "0", max: "1" }, color: "#d4892a", lineWidth: thin, folderId: "f" },
+      { id: "r5", latex: "r_5(t)=\\left(80+20t,\\ 40+10t,\\ 30\\right)", folderId: "f" },
+      { id: "c5", latex: "r_5(t)", domain: { min: "0", max: "1" }, color: "#d4892a", lineWidth: thin, folderId: "f" },
       { id: "s", latex: "s=0", sliderBounds: { min: "0", max: "5", step: "0.01" }, folderId: "f" },
       { id: "train", latex: "T=\\left\\{s\\le1:r_1(s),s\\le2:r_2(s-1),s\\le3:r_3(4\\pi(s-2)),s\\le4:r_4(s-3),r_5(s-4)\\right\\}", hidden: true, folderId: "f" },
       { id: "pt", latex: "T", color: "#f4d35e", pointSize: 12, folderId: "f" },

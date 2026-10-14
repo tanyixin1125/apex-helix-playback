@@ -1,6 +1,117 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { SEGMENT_DEFS, track } from "./track.mjs";
+import { SEGMENT_DEFS as FINAL_DEFS, track as finalTrack } from "./track.mjs";
+import { SEGMENT_DEFS as INITIAL_DEFS, track as initialTrack } from "./track-initial.mjs";
+
+const MODELS = {
+  initial: {
+    id: "initial",
+    track: initialTrack,
+    defs: INITIAL_DEFS,
+    kicker: "Part 1 · initial model",
+    lead: "From L (0, 0, 0) to H (100, 50, 30). The chain lift uses t as time. After P1, speed is fixed by height and normal acceleration is v²κ.",
+    caption: "Normal acceleration along the track. The dashed line is 4g. Red stretches are where the initial design exceeds it.",
+    dialogLead: "Plan and elevation use the same parametric equations as the track. The 3D expressions paste into the Desmos 3D calculator. After P1, v = √(56 + 19.62(30 − z)).",
+    desmosHref: "",
+    desmosLabel: "",
+    chartMax: 7,
+    helix: { x: 52, y: 20, r: 12 },
+    points3d: [
+      ["L", "(0, 0, 0)"],
+      ["P1", "(40, 20, 30)"],
+      ["P2", "(64, 20, 16)"],
+      ["P3", "(64, 20, 16-4pi)"],
+      ["P4", "(80, 40, 30)"],
+      ["H", "(100, 50, 30)"],
+      ["v(z)", "v(z)=sqrt(56+19.62*(30-z))"],
+    ],
+    planPoints: [
+      ["L", "(0,0)"],
+      ["P1", "(40,20)"],
+      ["P2 / P3", "(64,20)"],
+      ["P4", "(80,40)"],
+      ["H", "(100,50)"],
+    ],
+    elevPoints: [
+      ["L", "(0,0)"],
+      ["P1", "(40,30)"],
+      ["P2", "(64,16)"],
+      ["P3", "(64,16-4\\pi)"],
+      ["P4", "(80,30)"],
+      ["H", "(100,30)"],
+    ],
+    curves: [
+      { plan: String.raw`\left(4t,2t\right)`, elev: String.raw`\left(4t,0.3t^{2}\right)`, max: "10" },
+      { plan: String.raw`\left(40+16t+40t^{2}-32t^{3},20+8t-64t^{2}+56t^{3}\right)`, elev: String.raw`\left(40+16t+40t^{2}-32t^{3},30+24t-82t^{2}+44t^{3}\right)`, max: "1" },
+      { plan: String.raw`\left(52+12\cos\left(t\right),20+12\sin\left(t\right)\right)`, elev: String.raw`\left(52+12\cos\left(t\right),16-2t\right)`, max: "2\\pi" },
+      { plan: String.raw`\left(64+32t^{2}-16t^{3},20+48t-44t^{2}+16t^{3}\right)`, elev: String.raw`\left(64+32t^{2}-16t^{3},\left(16-4\pi\right)-8t+\left(58+12\pi\right)t^{2}-\left(36+8\pi\right)t^{3}\right)`, max: "1" },
+      { plan: String.raw`\left(80+20t,40+10t\right)`, elev: String.raw`\left(80+20t,30\right)`, max: "1" },
+    ],
+    energyLatex: String.raw`y=\sqrt{56+19.62\left(30-x\right)}`,
+    bounds: {
+      plan: { left: -12, right: 118, bottom: -12, top: 66 },
+      elev: { left: -12, right: 118, bottom: -6, top: 42 },
+      an: { left: -6, right: 250, bottom: -0.4, top: 7.4 },
+      energy: { left: -1, right: 34, bottom: -1, top: 28 },
+    },
+  },
+  final: {
+    id: "final",
+    track: finalTrack,
+    defs: FINAL_DEFS,
+    kicker: "Part 2 · final model",
+    lead: "From L (0, 0, 0) to H (100, 50, 30). The chain runs at 3 m/s. After the lift, speed is fixed by height and normal acceleration is v²κ.",
+    caption: "Normal acceleration along the track. The dashed line is 4g. This refinement stays under that line.",
+    dialogLead: "Plan and elevation use the same parametric equations as the track. The 3D expressions paste into the Desmos 3D calculator. After the lift, v = √(636.84 − 19.62z).",
+    desmosHref: "./desmos.html",
+    desmosLabel: "Part 2 Desmos 3D",
+    chartMax: 5,
+    helix: { x: 73.67, y: -17.45, r: 18 },
+    points3d: [
+      ["L", "(0, 0, 0)"],
+      ["P1", "(51.16, 25.58, 32)"],
+      ["P2", "(83.98, -32.20, 16)"],
+      ["P3", "(83.98, -32.20, 3.434)"],
+      ["P4", "(80, 40, 30)"],
+      ["H", "(100, 50, 30)"],
+      ["v(z)", "v(z)=sqrt(636.84-19.62*z)"],
+    ],
+    planPoints: [
+      ["L", "(0,0)"],
+      ["P1", "(51.16,25.58)"],
+      ["P2 / P3", "(83.98,-32.20)"],
+      ["P4", "(80,40)"],
+      ["H", "(100,50)"],
+    ],
+    elevPoints: [
+      ["L", "(0,0)"],
+      ["P1", "(51.16,32)"],
+      ["P2", "(83.98,16)"],
+      ["P3", "(83.98,3.434)"],
+      ["P4", "(80,30)"],
+      ["H", "(100,30)"],
+    ],
+    curves: [
+      { plan: String.raw`\left(\frac{114.4}{\sqrt{5}}t,\frac{57.20}{\sqrt{5}}t\right)`, elev: String.raw`\left(\frac{114.4}{\sqrt{5}}t,32\left(3t^{2}-2t^{3}\right)\right)`, max: "1" },
+      { plan: String.raw`\left(51.1612+52.0310t-51.6728t^{2}-230.873t^{3}+503.962t^{4}-240.629t^{5},25.5806+26.0155t-25.8364t^{2}-698.737t^{3}+1033.94t^{4}-393.167t^{5}\right)`, elev: String.raw`\left(51.1612+52.0310t-51.6728t^{2}-230.873t^{3}+503.962t^{4}-240.629t^{5},32-99.2917t^{2}+157.523t^{3}-92.5102t^{4}+18.2787t^{5}\right)`, max: "1" },
+      { plan: String.raw`\left(73.67+18\cos\left(-0.9609+t\right),-17.45+18\sin\left(-0.9609+t\right)\right)`, elev: String.raw`\left(73.67+18\cos\left(-0.9609+t\right),16-t\right)`, max: "4\\pi" },
+      { plan: String.raw`\left(83.9801+78.4067t-117.117t^{2}-364.668t^{3}+695.878t^{4}-296.481t^{5},-32.2047+54.7878t+228.209t^{2}-394.196t^{3}+219.997t^{4}-36.5928t^{5}\right)`, elev: String.raw`\left(83.9801+78.4067t-117.117t^{2}-364.668t^{3}+695.878t^{4}-296.481t^{5},3.43363-5.314t-1.9285t^{2}+303.333t^{3}-446.793t^{4}+177.269t^{5}\right)`, max: "1" },
+      { plan: String.raw`\left(80+20t,40+10t\right)`, elev: String.raw`\left(80+20t,30\right)`, max: "1" },
+    ],
+    energyLatex: String.raw`y=\sqrt{636.84-19.62x}`,
+    bounds: {
+      plan: { left: -12, right: 118, bottom: -48, top: 66 },
+      elev: { left: -12, right: 118, bottom: -6, top: 42 },
+      an: { left: -10, right: 520, bottom: -0.4, top: 5 },
+      energy: { left: -1, right: 34, bottom: -1, top: 28 },
+    },
+  },
+};
+
+let modelId = "final";
+let track = finalTrack;
+let SEGMENT_DEFS = FINAL_DEFS;
+let specById = Object.fromEntries(SEGMENT_DEFS.map((spec) => [spec.id, spec]));
 
 const G = 9.81;
 const HOLD = 2.6;
@@ -272,45 +383,82 @@ const grid = new THREE.GridHelper(320, 40, 0x355248, 0x24362f);
 grid.position.set(50, 0.03, -8);
 scene.add(grid);
 
-const ring = new THREE.Mesh(
-  new THREE.TorusGeometry(18, 0.045, 8, 120),
-  new THREE.MeshBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0.45 }),
-);
-ring.rotation.x = Math.PI / 2;
-ring.position.set(73.67, 0.08, 17.45);
-scene.add(ring);
+const ride = new THREE.Group();
+scene.add(ride);
+const markerSprites = [];
 
-scene.add(buildDeck(leadIn().concat(track.samples)));
-for (const spec of SEGMENT_DEFS) {
-  for (const rail of addRails(segmentSamples(spec.id), spec.color)) scene.add(rail);
+function disposeObject(object) {
+  object.traverse((node) => {
+    if (node.geometry) node.geometry.dispose();
+    const materials = node.material ? [].concat(node.material) : [];
+    for (const material of materials) {
+      if (material.map) material.map.dispose();
+      material.dispose();
+    }
+  });
 }
 
-const tieMat = new THREE.MeshStandardMaterial({ color: 0x8a8178, roughness: 0.55, metalness: 0.35 });
-const tieSpacing = 2.2;
-const tieStart = -8;
-const tieCount = Math.floor((track.length - tieStart) / tieSpacing);
-const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.07, 1.58), tieMat, tieCount);
-const dummy = new THREE.Object3D();
-for (let i = 0; i < tieCount; i++) {
-  const sample = track.sampleAtS(tieStart + (i + 0.5) * tieSpacing);
-  placeObject(dummy, sample, 0.1);
-  dummy.updateMatrix();
-  ties.setMatrixAt(i, dummy.matrix);
+function clearRide() {
+  while (ride.children.length) {
+    const child = ride.children[0];
+    ride.remove(child);
+    disposeObject(child);
+  }
+  markerSprites.length = 0;
 }
-ties.castShadow = true;
-ties.receiveShadow = true;
-scene.add(ties);
 
-const columnMat = new THREE.MeshStandardMaterial({ color: 0x6d6258, metalness: 0.62, roughness: 0.42 });
-for (let s = 6; s < track.length - 2; s += 10) {
-  const sample = track.sampleAtS(s);
-  const top = v3(sample.p);
-  const height = top.y - 0.05;
-  if (height < 2.4) continue;
-  const column = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, height, 7), columnMat);
-  column.position.set(top.x, height / 2, top.z);
-  column.castShadow = true;
-  scene.add(column);
+function buildRide() {
+  clearRide();
+  const helix = MODELS[modelId].helix;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(helix.r, 0.045, 8, 120),
+    new THREE.MeshBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0.45 }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(helix.x, 0.08, -helix.y);
+  ride.add(ring);
+
+  ride.add(buildDeck(leadIn().concat(track.samples)));
+  for (const spec of SEGMENT_DEFS) {
+    for (const rail of addRails(segmentSamples(spec.id), spec.color)) ride.add(rail);
+  }
+
+  const tieMat = new THREE.MeshStandardMaterial({ color: 0x8a8178, roughness: 0.55, metalness: 0.35 });
+  const tieSpacing = 2.2;
+  const tieStart = -8;
+  const tieCount = Math.max(1, Math.floor((track.length - tieStart) / tieSpacing));
+  const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.07, 1.58), tieMat, tieCount);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < tieCount; i++) {
+    const sample = track.sampleAtS(tieStart + (i + 0.5) * tieSpacing);
+    placeObject(dummy, sample, 0.1);
+    dummy.updateMatrix();
+    ties.setMatrixAt(i, dummy.matrix);
+  }
+  ties.castShadow = true;
+  ties.receiveShadow = true;
+  ride.add(ties);
+
+  const columnMat = new THREE.MeshStandardMaterial({ color: 0x6d6258, metalness: 0.62, roughness: 0.42 });
+  for (let s = 6; s < track.length - 2; s += 10) {
+    const sample = track.sampleAtS(s);
+    const top = v3(sample.p);
+    const height = top.y - 0.05;
+    if (height < 2.4) continue;
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, height, 7), columnMat);
+    column.position.set(top.x, height / 2, top.z);
+    column.castShadow = true;
+    ride.add(column);
+  }
+
+  addStation(track.samples[0], -6, 3.4);
+  addStation(track.samples.at(-1), 3, 3.6);
+  for (const marker of track.markers) {
+    const label = makeLabel(marker.label);
+    label.position.copy(v3(marker.sample.p)).add(new THREE.Vector3(0, marker.id === "H" || marker.id === "L" ? 4.2 : 3.3, 0));
+    ride.add(label);
+    markerSprites.push(label);
+  }
 }
 
 function addStation(sample, along, sideOffset) {
@@ -327,7 +475,7 @@ function addStation(sample, along, sideOffset) {
   slab.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(T, up, lat));
   slab.castShadow = true;
   slab.receiveShadow = true;
-  scene.add(slab);
+  ride.add(slab);
 
   const roofY = slab.position.y + 3.4;
   const roof = new THREE.Mesh(
@@ -338,7 +486,7 @@ function addStation(sample, along, sideOffset) {
   roof.position.y = roofY;
   roof.quaternion.copy(slab.quaternion);
   roof.castShadow = true;
-  scene.add(roof);
+  ride.add(roof);
   const postGeo = new THREE.CylinderGeometry(0.08, 0.08, roofY - slab.position.y, 6);
   const postMat = new THREE.MeshStandardMaterial({ color: 0x6d6258, metalness: 0.5, roughness: 0.4 });
   for (const [x, z] of [
@@ -352,19 +500,8 @@ function addStation(sample, along, sideOffset) {
     post.position.applyQuaternion(slab.quaternion).add(slab.position);
     post.position.y = (slab.position.y + roofY) / 2;
     post.castShadow = true;
-    scene.add(post);
+    ride.add(post);
   }
-}
-
-addStation(track.samples[0], -6, 3.4);
-addStation(track.samples.at(-1), 3, 3.6);
-
-const markerSprites = [];
-for (const marker of track.markers) {
-  const label = makeLabel(marker.label);
-  label.position.copy(v3(marker.sample.p)).add(new THREE.Vector3(0, marker.id === "H" || marker.id === "L" ? 4.2 : 3.3, 0));
-  scene.add(label);
-  markerSprites.push(label);
 }
 
 scene.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.4, 0), 16, 0xff6b6b, 1.1, 0.55));
@@ -401,8 +538,6 @@ const lookPos = new THREE.Vector3();
 let wasPlaying = true;
 let scrubbing = false;
 let wheelSpin = 0;
-
-const specById = Object.fromEntries(SEGMENT_DEFS.map((s) => [s.id, s]));
 
 function resize() {
   const w = window.innerWidth;
@@ -553,7 +688,7 @@ function drawChart(sNow) {
   ctx.clearRect(0, 0, w, h);
   const pad = chartPad();
   const plot = chartPlot(w, h, pad);
-  const yMax = 5;
+  const yMax = MODELS[modelId].chartMax;
   const X = (s) => plot.x + (s / track.length) * plot.w;
   const Y = (g) => plot.y + (1 - g / yMax) * plot.h;
 
@@ -565,7 +700,7 @@ function drawChart(sNow) {
   ctx.lineWidth = 1;
   ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
   ctx.fillStyle = "#b7b0a4";
-  for (const g of [0, 2, 4]) {
+  for (let g = 0; g < yMax; g += 2) {
     const y = Y(g);
     ctx.beginPath();
     ctx.moveTo(plot.x, y);
@@ -573,7 +708,8 @@ function drawChart(sNow) {
     ctx.stroke();
     ctx.fillText(String(g), 2, y + 3);
   }
-  for (let s = 0; s <= track.length + 1; s += 100) {
+  const tick = track.length > 320 ? 100 : 50;
+  for (let s = 0; s <= track.length + 1; s += tick) {
     ctx.fillText(String(s), X(s) - 8, plot.y + plot.h + 14);
   }
 
@@ -639,6 +775,8 @@ function seekFromChart(event) {
 
 function buildLegend() {
   const list = $("legend");
+  list.replaceChildren();
+  document.getElementById("summary-note")?.remove();
   for (const seg of track.segmentStats) {
     const pts = track.samples.filter((s) => s.seg === seg.id);
     const maxG = Math.max(...pts.map((s) => s.aNg));
@@ -656,6 +794,7 @@ function buildLegend() {
     list.append(item);
   }
   const note = document.createElement("p");
+  note.id = "summary-note";
   note.className = "lead";
   note.style.marginTop = "10px";
   note.textContent = `${track.length.toFixed(2)} m in ${track.duration.toFixed(2)} s. Peak normal acceleration ${track.peak.aNg.toFixed(2)} g. g = ${G} m/s².`;
@@ -682,6 +821,11 @@ function wireControls() {
   }
   for (const button of document.querySelectorAll("#cameras button")) {
     button.addEventListener("click", () => setCamera(button.dataset.cam));
+  }
+  for (const button of document.querySelectorAll("#models button")) {
+    button.addEventListener("click", () => {
+      if (button.dataset.model !== modelId) applyModel(button.dataset.model);
+    });
   }
   const scrub = $("scrub");
   scrub.max = String(track.duration);
@@ -733,15 +877,11 @@ function copyExpression(text, button) {
 
 function buildExpressionList() {
   const list = $("expr-list");
+  list.replaceChildren();
+  const model = MODELS[modelId];
   const rows = [
     ...SEGMENT_DEFS.map((spec) => ({ name: spec.short, text: spec.desmos3d })),
-    { name: "L", text: "(0, 0, 0)" },
-    { name: "P1", text: "(51.16, 25.58, 32)" },
-    { name: "P2", text: "(83.98, -32.20, 16)" },
-    { name: "P3", text: "(83.98, -32.20, 3.434)" },
-    { name: "P4", text: "(80, 40, 30)" },
-    { name: "H", text: "(100, 50, 30)" },
-    { name: "v(z)", text: "v(z)=sqrt(636.84-19.62*z)" },
+    ...model.points3d.map(([name, text]) => ({ name, text })),
   ];
   for (const row of rows) {
     const wrap = document.createElement("div");
@@ -759,13 +899,6 @@ function buildExpressionList() {
   }
 }
 
-const desmosBounds = {
-  plan: { left: -12, right: 118, bottom: -48, top: 66 },
-  elev: { left: -12, right: 118, bottom: -6, top: 42 },
-  an: { left: -10, right: 520, bottom: -0.4, top: 5 },
-  energy: { left: -1, right: 34, bottom: -1, top: 28 },
-};
-
 function showDesmosTab(id) {
   for (const button of document.querySelectorAll("#desmos-tabs button")) {
     button.classList.toggle("on", button.dataset.tab === id);
@@ -777,7 +910,7 @@ function showDesmosTab(id) {
   if (!calc) return;
   requestAnimationFrame(() => {
     calc.resize();
-    calc.setMathBounds(desmosBounds[id]);
+    calc.setMathBounds(MODELS[modelId].bounds[id]);
   });
 }
 
@@ -804,34 +937,8 @@ function initDesmos() {
   calculators.an = Desmos.GraphingCalculator($("calc-an"), { ...common, expressions: false });
   calculators.energy = Desmos.GraphingCalculator($("calc-energy"), common);
 
-  const curveLatex = [
-    {
-      plan: String.raw`\left(\frac{114.4}{\sqrt{5}}t,\frac{57.20}{\sqrt{5}}t\right)`,
-      elev: String.raw`\left(\frac{114.4}{\sqrt{5}}t,32\left(3t^{2}-2t^{3}\right)\right)`,
-      max: "1",
-    },
-    {
-      plan: String.raw`\left(51.1612+52.0310t-51.6728t^{2}-230.873t^{3}+503.962t^{4}-240.629t^{5},25.5806+26.0155t-25.8364t^{2}-698.737t^{3}+1033.94t^{4}-393.167t^{5}\right)`,
-      elev: String.raw`\left(51.1612+52.0310t-51.6728t^{2}-230.873t^{3}+503.962t^{4}-240.629t^{5},32-99.2917t^{2}+157.523t^{3}-92.5102t^{4}+18.2787t^{5}\right)`,
-      max: "1",
-    },
-    {
-      plan: String.raw`\left(73.67+18\cos\left(-0.9609+t\right),-17.45+18\sin\left(-0.9609+t\right)\right)`,
-      elev: String.raw`\left(73.67+18\cos\left(-0.9609+t\right),16-t\right)`,
-      max: "4\\pi",
-    },
-    {
-      plan: String.raw`\left(83.9801+78.4067t-117.117t^{2}-364.668t^{3}+695.878t^{4}-296.481t^{5},-32.2047+54.7878t+228.209t^{2}-394.196t^{3}+219.997t^{4}-36.5928t^{5}\right)`,
-      elev: String.raw`\left(83.9801+78.4067t-117.117t^{2}-364.668t^{3}+695.878t^{4}-296.481t^{5},3.43363-5.314t-1.9285t^{2}+303.333t^{3}-446.793t^{4}+177.269t^{5}\right)`,
-      max: "1",
-    },
-    {
-      plan: String.raw`\left(80+20t,40+10t\right)`,
-      elev: String.raw`\left(80+20t,30\right)`,
-      max: "1",
-    },
-  ];
-  curveLatex.forEach((curve, index) => {
+  const model = MODELS[modelId];
+  model.curves.forEach((curve, index) => {
     const domain = { min: "0", max: curve.max };
     const color = SEGMENT_DEFS[index].color;
     calculators.plan.setExpression({
@@ -847,29 +954,14 @@ function initDesmos() {
       parametricDomain: domain,
     });
   });
-  const planPoints = [
-    ["L", "(0,0)"],
-    ["P1", "(51.16,25.58)"],
-    ["P2 / P3", "(83.98,-32.20)"],
-    ["P4", "(80,40)"],
-    ["H", "(100,50)"],
-  ];
-  planPoints.forEach(([label, latex], index) => {
+  model.planPoints.forEach(([label, latex], index) => {
     calculators.plan.setExpression({ id: `pp${index}`, latex, label, showLabel: true, pointSize: 12, color: "#1c1915" });
   });
-  const elevPoints = [
-    ["L", "(0,0)"],
-    ["P1", "(51.16,32)"],
-    ["P2", "(83.98,16)"],
-    ["P3", "(83.98,3.434)"],
-    ["P4", "(80,30)"],
-    ["H", "(100,30)"],
-  ];
-  elevPoints.forEach(([label, latex], index) => {
+  model.elevPoints.forEach(([label, latex], index) => {
     calculators.elev.setExpression({ id: `ep${index}`, latex, label, showLabel: true, pointSize: 12, color: "#1c1915" });
   });
-  calculators.plan.setMathBounds(desmosBounds.plan);
-  calculators.elev.setMathBounds(desmosBounds.elev);
+  calculators.plan.setMathBounds(model.bounds.plan);
+  calculators.elev.setMathBounds(model.bounds.elev);
 
   const count = 180;
   const ss = [];
@@ -888,15 +980,132 @@ function initDesmos() {
     ],
   });
   calculators.an.setExpression({ id: "limit", latex: "y=4", color: "#c0392b", lineStyle: "DASHED" });
-  calculators.an.setMathBounds(desmosBounds.an);
+  calculators.an.setMathBounds(model.bounds.an);
 
   calculators.energy.setExpression({
     id: "vz",
-    latex: String.raw`y=\sqrt{636.84-19.62x}`,
+    latex: model.energyLatex,
     color: "#c0392b",
   });
-  calculators.energy.setMathBounds(desmosBounds.energy);
+  calculators.energy.setMathBounds(model.bounds.energy);
   showDesmosTab("plan");
+}
+
+function resetDesmos() {
+  for (const key of Object.keys(calculators)) {
+    try {
+      calculators[key].destroy();
+    } catch (err) {
+      /* calculator already gone */
+    }
+    delete calculators[key];
+  }
+  desmosReady = false;
+}
+
+function applyChrome() {
+  const model = MODELS[modelId];
+  $("kicker").textContent = model.kicker;
+  $("lead").textContent = model.lead;
+  $("chart-caption").textContent = model.caption;
+  $("dialog-lead").textContent = model.dialogLead;
+  const link = $("desmos-link");
+  link.hidden = !model.desmosHref;
+  if (model.desmosHref) {
+    link.href = model.desmosHref;
+    link.textContent = model.desmosLabel;
+  }
+  for (const button of document.querySelectorAll("#models button")) {
+    button.classList.toggle("on", button.dataset.model === modelId);
+    button.setAttribute("aria-pressed", String(button.dataset.model === modelId));
+  }
+  $("scrub").max = String(track.duration);
+  $("scrub").value = "0";
+  document.title = modelId === "final" ? "Apex Helix — final model" : "Apex Helix — initial model";
+}
+
+function applyModel(id, resetView = true) {
+  if (!MODELS[id]) id = "final";
+  modelId = id;
+  track = MODELS[id].track;
+  SEGMENT_DEFS = MODELS[id].defs;
+  specById = Object.fromEntries(SEGMENT_DEFS.map((spec) => [spec.id, spec]));
+  clock = 0;
+  playing = true;
+  $("play").textContent = "Pause";
+  snapCamera = true;
+  applyChrome();
+  buildRide();
+  buildLegend();
+  const dialog = $("desmos-dialog");
+  const dialogOpen = dialog.open;
+  const activeTab = document.querySelector("#desmos-tabs button.on")?.dataset.tab || "plan";
+  resetDesmos();
+  buildExpressionList();
+  if (dialogOpen) {
+    initDesmos();
+    showDesmosTab(activeTab);
+  }
+  if (resetView && cameraMode === "overview") setCamera("overview");
+  const url = new URL(location.href);
+  url.searchParams.set("model", id);
+  history.replaceState(null, "", url);
+}
+
+function wireResize() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("apex-panels") || "{}");
+    for (const id of ["title-panel", "telemetry"]) {
+      const size = saved[id];
+      const panel = $(id);
+      if (!size || !panel) continue;
+      if (size.width) panel.style.width = size.width;
+      if (size.height) {
+        panel.style.height = size.height;
+        panel.style.maxHeight = size.height;
+      }
+    }
+  } catch (err) {
+    /* ignore stored sizes */
+  }
+  for (const handle of document.querySelectorAll(".resize-handle")) {
+    handle.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const panel = handle.closest(".panel");
+      const edge = handle.dataset.edge;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const rect = panel.getBoundingClientRect();
+      const move = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let width = rect.width;
+        let height = rect.height;
+        if (edge.includes("e")) width = rect.width + dx;
+        if (edge.includes("w")) width = rect.width - dx;
+        if (edge.includes("s")) height = rect.height + dy;
+        width = Math.max(260, Math.min(width, window.innerWidth - 32));
+        height = Math.max(160, Math.min(height, window.innerHeight - 150));
+        panel.style.width = `${Math.round(width)}px`;
+        panel.style.height = `${Math.round(height)}px`;
+        panel.style.maxHeight = `${Math.round(height)}px`;
+      };
+      const up = () => {
+        handle.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        try {
+          const data = JSON.parse(localStorage.getItem("apex-panels") || "{}");
+          data[panel.id] = { width: panel.style.width, height: panel.style.height };
+          localStorage.setItem("apex-panels", JSON.stringify(data));
+        } catch (err) {
+          /* ignore */
+        }
+      };
+      handle.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+  }
 }
 
 function wireDesmos() {
@@ -912,9 +1121,11 @@ function wireDesmos() {
   }
 }
 
-buildLegend();
 wireControls();
+wireResize();
 wireDesmos();
+const requested = new URLSearchParams(location.search).get("model");
+applyModel(requested === "initial" ? "initial" : "final", false);
 resize();
 $("boot").classList.add("done");
 
