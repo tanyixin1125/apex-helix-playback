@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,650&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=8" />
+  <link rel="stylesheet" href="./styles.css?v=10" />
   <script src="https://www.desmos.com/api/v1.10/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
 </head>
 <body>
@@ -53,7 +53,7 @@
     </div>
     <div class="dock-links">
       <button type="button" id="toggle-details">Details</button>
-      <button type="button" id="toggle-chart">Graph</button>
+      <button type="button" id="toggle-chart" class="on">Graph</button>
       <button type="button" id="open-desmos" class="solid">Desmos graphs</button>
       <a class="text-link" href="./desmos-initial.html">Part 1 Desmos 3D</a>
       <a class="text-link" href="./desmos.html">Part 2 Desmos 3D</a>
@@ -86,13 +86,18 @@
       </div>
     </div>
     <div id="pane-diff" hidden>
-      <p class="lead">Gold line is the other model. Click a segment to jump there on the ride you selected.</p>
+      <p class="lead">Left is the initial model and right is the final model. Click a segment to jump there.</p>
       <div id="diff-list"></div>
     </div>
     <div class="resize-handle resize-e" data-edge="e" title="Drag to resize"></div>
   </aside>
 
-  <footer class="panel transport" id="chart-panel" hidden>
+  <div id="compare-chrome" hidden>
+    <span class="side-label left">Initial</span>
+    <span class="side-label right">Final</span>
+  </div>
+
+  <footer class="panel transport" id="chart-panel">
     <div class="chart-wrap">
       <canvas id="chart" aria-label="Normal acceleration along the track"></canvas>
       <p class="caption" id="chart-caption">Normal acceleration along the track. The dashed line is 4g. This refinement stays under that line.</p>
@@ -125,6 +130,6 @@
     <p class="paste-note">Paste one expression at a time into <a href="https://www.desmos.com/3d" target="_blank" rel="noreferrer">desmos.com/3d</a>. If it asks for a domain, use the interval in braces.</p>
   </dialog>
 
-  <script type="module" src="./main.js?v=8"></script>
+  <script type="module" src="./main.js?v=10"></script>
 </body>
 </html>

@@ -168,6 +168,48 @@ button:focus-visible, a:focus-visible {
   overflow-wrap: anywhere;
 }
 .diff-card .change { color: var(--ink); }
+.diff-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.diff-cols > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(244, 239, 230, 0.04);
+}
+.diff-cols .kicker { font-size: 10px; }
+
+#compare-chrome {
+  position: fixed;
+  z-index: 3;
+  pointer-events: none;
+}
+#compare-chrome::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(244, 239, 230, 0.35);
+}
+.side-label {
+  position: absolute;
+  top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(14, 18, 24, 0.82);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.side-label.left { left: 12px; color: var(--gold); }
+.side-label.right { right: 12px; }
 
 .resize-handle {
   position: absolute;

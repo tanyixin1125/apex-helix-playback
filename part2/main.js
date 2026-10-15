@@ -141,15 +141,15 @@ function hexToRgb(hex) {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-function segmentSamples(id) {
-  const pts = track.samples.filter((s) => s.seg === id);
-  if (id === 1) return leadIn().concat(pts);
-  const prev = [...track.samples].reverse().find((s) => s.seg === id - 1);
+function segmentSamples(id, source = track) {
+  const pts = source.samples.filter((s) => s.seg === id);
+  if (id === 1) return leadIn(source).concat(pts);
+  const prev = [...source.samples].reverse().find((s) => s.seg === id - 1);
   return prev ? [prev, ...pts] : pts;
 }
 
-function leadIn() {
-  const origin = track.samples[0];
+function leadIn(source = track) {
+  const origin = source.samples[0];
   const out = [];
   for (let i = 8; i >= 1; i--) {
     out.push({
@@ -383,11 +383,12 @@ const grid = new THREE.GridHelper(320, 40, 0x355248, 0x24362f);
 grid.position.set(50, 0.03, -8);
 scene.add(grid);
 
-const ride = new THREE.Group();
-scene.add(ride);
-const ghost = new THREE.Group();
-scene.add(ghost);
-const markerSprites = [];
+const rides = {
+  initial: new THREE.Group(),
+  final: new THREE.Group(),
+};
+scene.add(rides.initial, rides.final);
+const markerSprites = { initial: [], final: [] };
 let compareOn = false;
 
 const CHANGES = [
@@ -409,104 +410,101 @@ function disposeObject(object) {
   });
 }
 
-function clearRide() {
-  while (ride.children.length) {
-    const child = ride.children[0];
-    ride.remove(child);
+function clearGroup(group) {
+  while (group.children.length) {
+    const child = group.children[0];
+    group.remove(child);
     disposeObject(child);
   }
-  markerSprites.length = 0;
 }
 
-function buildRide() {
-  clearRide();
-  const helix = MODELS[modelId].helix;
+function buildOne(id) {
+  const group = rides[id];
+  const model = MODELS[id];
+  const source = model.track;
+  clearGroup(group);
+  markerSprites[id] = [];
+  const helix = model.helix;
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(helix.r, 0.045, 8, 120),
     new THREE.MeshBasicMaterial({ color: 0xc77dff, transparent: true, opacity: 0.45 }),
   );
   ring.rotation.x = Math.PI / 2;
   ring.position.set(helix.x, 0.08, -helix.y);
-  ride.add(ring);
+  group.add(ring);
 
-  ride.add(buildDeck(leadIn().concat(track.samples)));
-  for (const spec of SEGMENT_DEFS) {
-    for (const rail of addRails(segmentSamples(spec.id), spec.color)) ride.add(rail);
+  group.add(buildDeck(leadIn(source).concat(source.samples)));
+  for (const spec of model.defs) {
+    for (const rail of addRails(segmentSamples(spec.id, source), spec.color)) group.add(rail);
   }
 
   const tieMat = new THREE.MeshStandardMaterial({ color: 0x8a8178, roughness: 0.55, metalness: 0.35 });
   const tieSpacing = 2.2;
   const tieStart = -8;
-  const tieCount = Math.max(1, Math.floor((track.length - tieStart) / tieSpacing));
+  const tieCount = Math.max(1, Math.floor((source.length - tieStart) / tieSpacing));
   const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.07, 1.58), tieMat, tieCount);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < tieCount; i++) {
-    const sample = track.sampleAtS(tieStart + (i + 0.5) * tieSpacing);
+    const sample = source.sampleAtS(tieStart + (i + 0.5) * tieSpacing);
     placeObject(dummy, sample, 0.1);
     dummy.updateMatrix();
     ties.setMatrixAt(i, dummy.matrix);
   }
   ties.castShadow = true;
   ties.receiveShadow = true;
-  ride.add(ties);
+  group.add(ties);
 
   const columnMat = new THREE.MeshStandardMaterial({ color: 0x6d6258, metalness: 0.62, roughness: 0.42 });
-  for (let s = 6; s < track.length - 2; s += 10) {
-    const sample = track.sampleAtS(s);
+  for (let s = 6; s < source.length - 2; s += 10) {
+    const sample = source.sampleAtS(s);
     const top = v3(sample.p);
     const height = top.y - 0.05;
     if (height < 2.4) continue;
     const column = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, height, 7), columnMat);
     column.position.set(top.x, height / 2, top.z);
     column.castShadow = true;
-    ride.add(column);
+    group.add(column);
   }
 
-  addStation(track.samples[0], -6, 3.4);
-  addStation(track.samples.at(-1), 3, 3.6);
-  for (const marker of track.markers) {
+  addStation(group, source.samples[0], -6, 3.4);
+  addStation(group, source.samples.at(-1), 3, 3.6);
+  for (const marker of source.markers) {
     const label = makeLabel(marker.label);
     label.position.copy(v3(marker.sample.p)).add(new THREE.Vector3(0, marker.id === "H" || marker.id === "L" ? 4.2 : 3.3, 0));
-    ride.add(label);
-    markerSprites.push(label);
-  }
-  buildGhost();
-}
-
-function clearGhost() {
-  while (ghost.children.length) {
-    const child = ghost.children[0];
-    ghost.remove(child);
-    disposeObject(child);
+    group.add(label);
+    markerSprites[id].push(label);
   }
 }
 
-function buildGhost() {
-  clearGhost();
-  if (!compareOn) return;
-  const other = MODELS[modelId === "initial" ? "final" : "initial"];
-  const helix = other.helix;
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(helix.r, 0.05, 8, 100),
-    new THREE.MeshBasicMaterial({ color: 0xe2b15a, transparent: true, opacity: 0.35, depthWrite: false }),
-  );
-  ring.rotation.x = Math.PI / 2;
-  ring.position.set(helix.x, 0.12, -helix.y);
-  ghost.add(ring);
+const trackCenters = {
+  initial: new THREE.Vector3(),
+  final: new THREE.Vector3(),
+};
 
-  for (const stat of other.track.segmentStats) {
-    const samples = other.track.samples.filter((sample) => sample.seg === stat.id);
-    const pts = samples.filter((_, index) => index % 3 === 0).map((sample) => v3(sample.p));
-    if (pts.length < 2) continue;
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(new PointCurve(pts), Math.max(8, pts.length - 1), 0.28, 5, false),
-      new THREE.MeshBasicMaterial({ color: 0xe2b15a, transparent: true, opacity: 0.42, depthWrite: false }),
-    );
-    ghost.add(tube);
+function measureCenters() {
+  for (const id of ["initial", "final"]) {
+    const samples = MODELS[id].track.samples;
+    const acc = new THREE.Vector3();
+    const step = Math.max(1, Math.floor(samples.length / 48));
+    let count = 0;
+    for (let i = 0; i < samples.length; i += step) {
+      acc.add(v3(samples[i].p));
+      count += 1;
+    }
+    trackCenters[id].copy(acc).multiplyScalar(1 / count);
   }
 }
 
-function addStation(sample, along, sideOffset) {
+let ridesBuilt = false;
+function buildRide() {
+  if (ridesBuilt) return;
+  buildOne("initial");
+  buildOne("final");
+  measureCenters();
+  ridesBuilt = true;
+}
+
+function addStation(parent, sample, along, sideOffset) {
   const T = v3(sample.T).normalize();
   const up = new THREE.Vector3(0, 1, 0);
   const lat = new THREE.Vector3().crossVectors(T, up).normalize();
@@ -520,7 +518,7 @@ function addStation(sample, along, sideOffset) {
   slab.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(T, up, lat));
   slab.castShadow = true;
   slab.receiveShadow = true;
-  ride.add(slab);
+  parent.add(slab);
 
   const roofY = slab.position.y + 3.4;
   const roof = new THREE.Mesh(
@@ -531,7 +529,7 @@ function addStation(sample, along, sideOffset) {
   roof.position.y = roofY;
   roof.quaternion.copy(slab.quaternion);
   roof.castShadow = true;
-  ride.add(roof);
+  parent.add(roof);
   const postGeo = new THREE.CylinderGeometry(0.08, 0.08, roofY - slab.position.y, 6);
   const postMat = new THREE.MeshStandardMaterial({ color: 0x6d6258, metalness: 0.5, roughness: 0.4 });
   for (const [x, z] of [
@@ -545,7 +543,7 @@ function addStation(sample, along, sideOffset) {
     post.position.applyQuaternion(slab.quaternion).add(slab.position);
     post.position.y = (slab.position.y + roofY) / 2;
     post.castShadow = true;
-    ride.add(post);
+    parent.add(post);
   }
 }
 
@@ -563,15 +561,22 @@ for (const [text, pos] of [
   scene.add(label);
 }
 
-const cars = [
-  makeCar(0xf25c54),
-  makeCar(0xf4a261),
-  makeCar(0xe9c46a),
-].map((car, i) => {
-  car.userData.offset = i * 3.55;
-  scene.add(car);
-  return car;
-});
+function makeTrain() {
+  return [makeCar(0xf25c54), makeCar(0xf4a261), makeCar(0xe9c46a)].map((car, i) => {
+    car.userData.offset = i * 3.55;
+    scene.add(car);
+    return car;
+  });
+}
+const trains = { initial: makeTrain(), final: makeTrain() };
+const sideCam = {
+  initial: camera,
+  final: new THREE.PerspectiveCamera(42, 1, 0.1, 800),
+};
+const followState = {
+  initial: { pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true },
+  final: { pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true },
+};
 
 let playing = true;
 let rate = 1;
@@ -600,6 +605,12 @@ function layoutView() {
   canvas.style.bottom = "auto";
   canvas.style.width = `${w}px`;
   canvas.style.height = `${h}px`;
+  const chrome = $("compare-chrome");
+  chrome.hidden = !compareOn;
+  chrome.style.top = `${top}px`;
+  chrome.style.left = `${left}px`;
+  chrome.style.width = `${w}px`;
+  chrome.style.height = `${h}px`;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
@@ -614,8 +625,12 @@ function setCamera(mode) {
   for (const button of document.querySelectorAll("#cameras button")) {
     button.classList.toggle("on", button.dataset.cam === mode);
   }
-  cars[0].visible = mode !== "rider";
-  for (const sprite of markerSprites) sprite.visible = mode === "overview";
+  for (const id of ["initial", "final"]) {
+    trains[id][0].visible = mode !== "rider";
+    for (const sprite of markerSprites[id]) sprite.visible = mode === "overview";
+    followState[id].snap = true;
+  }
+  snapCamera = true;
   if (mode === "overview") {
     camera.up.set(0, 1, 0);
     camera.position.set(155, 86, 92);
@@ -656,14 +671,24 @@ function updateCamera(sample, dt) {
   camera.lookAt(lookPos);
 }
 
-function updateTrain(sample) {
+function updateTrain(id, sample, visible) {
+  const source = MODELS[id].track;
   const moved = sample.s;
-  for (const car of cars) {
-    const at = track.sampleAtS(moved - car.userData.offset);
+  trains[id].forEach((car, index) => {
+    const show = visible && !(cameraMode === "rider" && index === 0);
+    car.visible = show;
+    if (!show) return;
+    const at = source.sampleAtS(moved - car.userData.offset);
     placeObject(car, at, 0.02);
     for (const wheel of car.userData.wheels) wheel.rotation.z = -moved / 0.22;
-  }
+  });
   wheelSpin = moved;
+}
+
+function fractionSample(id) {
+  const here = track.sampleAt(Math.min(Math.max(clock, 0), track.duration));
+  const source = MODELS[id].track;
+  return source.sampleAtS((here.s / track.length) * source.length);
 }
 
 const readout = $("readout");
@@ -754,6 +779,10 @@ function drawChart(sNow) {
   ctx.clearRect(0, 0, w, h);
   const pad = chartPad();
   const plot = chartPlot(w, h, pad);
+  if (compareOn) {
+    drawCompareChart(ctx, plot, w, sNow / track.length);
+    return;
+  }
   const yMax = MODELS[modelId].chartMax;
   const X = (s) => plot.x + (s / track.length) * plot.w;
   const Y = (g) => plot.y + (1 - g / yMax) * plot.h;
@@ -820,6 +849,58 @@ function drawChart(sNow) {
   ctx.moveTo(px, plot.y);
   ctx.lineTo(px, plot.y + plot.h);
   ctx.stroke();
+}
+
+function drawCompareChart(ctx, plot, w, along) {
+  const yMax = 7;
+  const X = (u) => plot.x + u * plot.w;
+  const Y = (g) => plot.y + (1 - g / yMax) * plot.h;
+  ctx.strokeStyle = "rgba(244,239,230,0.12)";
+  ctx.lineWidth = 1;
+  ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
+  ctx.fillStyle = "#b7b0a4";
+  for (let g = 0; g < yMax; g += 2) {
+    const y = Y(g);
+    ctx.beginPath();
+    ctx.moveTo(plot.x, y);
+    ctx.lineTo(plot.x + plot.w, y);
+    ctx.stroke();
+    ctx.fillText(String(g), 2, y + 3);
+  }
+  for (const mark of [0, 0.5, 1]) {
+    ctx.fillText(mark === 0 ? "start" : mark === 1 ? "finish" : "mid", X(mark) - 14, plot.y + plot.h + 14);
+  }
+  const stroke = (source, color) => {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    source.samples.forEach((sample, index) => {
+      const x = X(sample.s / source.length);
+      const y = Y(Math.min(yMax, sample.aNg));
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  };
+  stroke(MODELS.initial.track, "#e2b15a");
+  stroke(MODELS.final.track, "#f3e6c8");
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "rgba(255,77,106,0.9)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plot.x, Y(4));
+  ctx.lineTo(plot.x + plot.w, Y(4));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "#f4efe6";
+  ctx.beginPath();
+  ctx.moveTo(X(along), plot.y);
+  ctx.lineTo(X(along), plot.y + plot.h);
+  ctx.stroke();
+  ctx.fillStyle = "#e2b15a";
+  ctx.fillText("Initial", w - 118, 16);
+  ctx.fillStyle = "#f3e6c8";
+  ctx.fillText("Final", w - 58, 16);
 }
 
 function chartPad() {
@@ -1103,7 +1184,7 @@ function buildDiff() {
     button.className = "diff-card";
     button.dataset.seg = String(initialSeg.id);
     const worse = (peak) => (peak > 4.01 ? "exceeds 4g" : "within 4g");
-    button.innerHTML = `<span class="name">${index + 1} · ${initialSeg.name} → ${finalSeg.name}</span><span class="meta">Initial ${initialSeg.length.toFixed(1)} m · ${initialSeg.time.toFixed(2)} s · peak ${initialPeak.toFixed(2)} g · ${worse(initialPeak)}</span><span class="meta">Final ${finalSeg.length.toFixed(1)} m · ${finalSeg.time.toFixed(2)} s · peak ${finalPeak.toFixed(2)} g · ${worse(finalPeak)}</span><span class="change">${CHANGES[index]}</span>`;
+    button.innerHTML = `<span class="name">${index + 1} · ${initialSeg.name} → ${finalSeg.name}</span><span class="diff-cols"><span><span class="kicker">Initial</span><span class="meta">${initialSeg.length.toFixed(1)} m · ${initialSeg.time.toFixed(2)} s</span><span class="meta">peak ${initialPeak.toFixed(2)} g · ${worse(initialPeak)}</span></span><span><span class="kicker">Final</span><span class="meta">${finalSeg.length.toFixed(1)} m · ${finalSeg.time.toFixed(2)} s</span><span class="meta">peak ${finalPeak.toFixed(2)} g · ${worse(finalPeak)}</span></span></span><span class="change">${CHANGES[index]}</span>`;
     button.addEventListener("click", () => {
       const first = track.samples.find((sample) => sample.seg === initialSeg.id);
       if (first) clock = first.time;
@@ -1140,13 +1221,17 @@ function closeDrawer() {
   layoutView();
 }
 
+const COMPARE_CAPTION = "Both rides from start to finish. Gold is the initial model. Cream is the final model. The dashed line is 4g.";
+
 function setCompare(on) {
   compareOn = on;
   const button = $("toggle-compare");
   button.classList.toggle("on", on);
   button.setAttribute("aria-pressed", String(on));
-  buildGhost();
-  if (on) openDrawer("diff");
+  followState.initial.snap = true;
+  followState.final.snap = true;
+  $("chart-caption").textContent = on ? COMPARE_CAPTION : MODELS[modelId].caption;
+  layoutView();
   const url = new URL(location.href);
   if (on) url.searchParams.set("compare", "1");
   else url.searchParams.delete("compare");
@@ -1157,7 +1242,7 @@ function applyChrome() {
   const model = MODELS[modelId];
   $("kicker").textContent = model.kicker;
   $("lead").textContent = model.lead;
-  $("chart-caption").textContent = model.caption;
+  $("chart-caption").textContent = compareOn ? COMPARE_CAPTION : model.caption;
   $("dialog-lead").textContent = model.dialogLead;
   for (const button of document.querySelectorAll("#models button")) {
     button.classList.toggle("on", button.dataset.model === modelId);
@@ -1276,6 +1361,89 @@ if (new URLSearchParams(location.search).get("compare") === "1") setCompare(true
 resize();
 $("boot").classList.add("done");
 
+function poseFollow(cam, state, sample, dt) {
+  const T = v3(sample.T).normalize();
+  const H = v3(sample.H).normalize();
+  const origin = v3(sample.p);
+  const desired = origin.clone();
+  const look = origin.clone();
+  if (cameraMode === "chase") {
+    desired.addScaledVector(T, -22).addScaledVector(H, 8);
+    look.addScaledVector(T, 12).addScaledVector(H, 1.6);
+  } else {
+    desired.addScaledVector(H, 1.15).addScaledVector(T, 0.2);
+    look.copy(desired).addScaledVector(T, 28).addScaledVector(H, -0.15);
+  }
+  if (state.snap) {
+    state.pos.copy(desired);
+    state.look.copy(look);
+    state.snap = false;
+  } else {
+    const k = 1 - Math.exp(-(cameraMode === "rider" ? 10 : 4.5) * dt);
+    state.pos.lerp(desired, k);
+    state.look.lerp(look, k);
+  }
+  cam.up.copy(H);
+  cam.position.copy(state.pos);
+  cam.lookAt(state.look);
+}
+
+function renderScene() {
+  const canvas = renderer.domElement;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  if (!compareOn) {
+    rides.initial.visible = modelId === "initial";
+    rides.final.visible = modelId === "final";
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, cssW, cssH);
+    renderer.render(scene, camera);
+    return;
+  }
+  const half = Math.floor(cssW / 2);
+  const aspect = cssW / 2 / Math.max(1, cssH);
+  const savedPos = camera.position.clone();
+  const savedQuat = camera.quaternion.clone();
+  const savedUp = camera.up.clone();
+  const savedAspect = camera.aspect;
+  const offset = savedPos.clone().sub(controls.target);
+  renderer.autoClear = false;
+  renderer.setScissorTest(true);
+  for (const [id, x, width] of [
+    ["initial", 0, half],
+    ["final", half, cssW - half],
+  ]) {
+    rides.initial.visible = id === "initial";
+    rides.final.visible = id === "final";
+    for (const key of ["initial", "final"]) {
+      const showSide = key === id;
+      trains[key].forEach((car, index) => {
+        car.visible = showSide && !(cameraMode === "rider" && index === 0);
+      });
+    }
+    const cam = sideCam[id];
+    if (cameraMode === "overview") {
+      const center = trackCenters[id];
+      cam.up.set(0, 1, 0);
+      cam.position.copy(center).add(offset);
+      cam.lookAt(center);
+    }
+    cam.aspect = aspect;
+    cam.updateProjectionMatrix();
+    renderer.setViewport(x, 0, width, cssH);
+    renderer.setScissor(x, 0, width, cssH);
+    renderer.clear(true, true, false);
+    renderer.render(scene, cam);
+  }
+  camera.position.copy(savedPos);
+  camera.quaternion.copy(savedQuat);
+  camera.up.copy(savedUp);
+  camera.aspect = savedAspect;
+  camera.updateProjectionMatrix();
+  renderer.setScissorTest(false);
+  renderer.autoClear = true;
+}
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -1286,12 +1454,25 @@ function frame(now) {
   }
   const stopped = clock >= track.duration;
   const sample = track.sampleAt(Math.min(clock, track.duration));
-  updateTrain(sample);
-  updateCamera(sample, dt);
+  if (compareOn) {
+    const left = fractionSample("initial");
+    const right = fractionSample("final");
+    updateTrain("initial", left, true);
+    updateTrain("final", right, true);
+    if (cameraMode === "overview") controls.update();
+    else {
+      poseFollow(sideCam.initial, followState.initial, left, dt);
+      poseFollow(sideCam.final, followState.final, right, dt);
+    }
+  } else {
+    updateTrain("initial", sample, modelId === "initial");
+    updateTrain("final", sample, modelId === "final");
+    updateCamera(sample, dt);
+    if (cameraMode === "overview") controls.update();
+  }
   updateHud(sample, stopped);
   drawChart(sample.s);
-  if (cameraMode === "overview") controls.update();
-  renderer.render(scene, camera);
+  renderScene();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
