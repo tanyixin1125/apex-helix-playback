@@ -976,6 +976,7 @@ function wireControls() {
   }
   for (const button of document.querySelectorAll("#models button")) {
     button.addEventListener("click", () => {
+      if (compareOn) setCompare(false);
       if (button.dataset.model !== modelId) applyModel(button.dataset.model);
     });
   }
@@ -1371,8 +1372,9 @@ wireControls();
 wireResize();
 wireDesmos();
 const requested = new URLSearchParams(location.search).get("model");
+const compareRequested = new URLSearchParams(location.search).get("compare");
 applyModel(requested === "initial" ? "initial" : "final", false);
-if (new URLSearchParams(location.search).get("compare") === "1") setCompare(true);
+if (compareRequested === "1" || !requested) setCompare(true);
 resize();
 $("boot").classList.add("done");
 
