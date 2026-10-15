@@ -594,9 +594,14 @@ function layoutView() {
   const dock = document.querySelector(".dock");
   const drawer = $("info-drawer");
   const chart = $("chart-panel");
-  const top = Math.ceil(dock.getBoundingClientRect().height) + 20;
-  const left = drawer.classList.contains("open") ? Math.ceil(drawer.getBoundingClientRect().width) + 24 : 0;
-  const bottom = chart.hidden ? 0 : Math.ceil(chart.getBoundingClientRect().height) + 16;
+  const top = Math.ceil(dock.getBoundingClientRect().height) + 18;
+  const left = drawer.open ? Math.ceil(drawer.getBoundingClientRect().width) + 24 : 0;
+  const bottom = chart.open ? Math.ceil(chart.getBoundingClientRect().height) + 20 : 0;
+  if (drawer.open) {
+    drawer.style.top = `${top}px`;
+    drawer.style.maxHeight = `${Math.max(180, window.innerHeight - top - bottom - 16)}px`;
+  }
+  if (chart.open) chart.style.left = `${left + 12}px`;
   const w = Math.max(1, window.innerWidth - left);
   const h = Math.max(1, window.innerHeight - top - bottom);
   canvas.style.top = `${top}px`;
@@ -976,17 +981,27 @@ function wireControls() {
   }
   $("toggle-compare").addEventListener("click", () => setCompare(!compareOn));
   $("toggle-details").addEventListener("click", () => {
-    if ($("info-drawer").classList.contains("open") && !$("pane-now").hidden) closeDrawer();
+    if ($("info-drawer").open && !$("pane-now").hidden) closeDrawer();
     else openDrawer("now");
   });
   $("close-drawer").addEventListener("click", closeDrawer);
+  $("info-drawer").addEventListener("close", () => {
+    $("toggle-details").classList.remove("on");
+    layoutView();
+  });
   for (const button of document.querySelectorAll("#drawer-tabs button")) {
     button.addEventListener("click", () => showDrawerPane(button.dataset.pane));
   }
   $("toggle-chart").addEventListener("click", () => {
     const panel = $("chart-panel");
-    panel.hidden = !panel.hidden;
-    $("toggle-chart").classList.toggle("on", !panel.hidden);
+    if (panel.open) panel.close();
+    else panel.show();
+    $("toggle-chart").classList.toggle("on", panel.open);
+    layoutView();
+  });
+  $("close-chart").addEventListener("click", () => $("chart-panel").close());
+  $("chart-panel").addEventListener("close", () => {
+    $("toggle-chart").classList.remove("on");
     layoutView();
   });
   const scrub = $("scrub");
@@ -1207,16 +1222,16 @@ function showDrawerPane(pane) {
 }
 
 function openDrawer(pane) {
-  $("info-drawer").classList.add("open");
-  $("info-drawer").setAttribute("aria-hidden", "false");
+  const drawer = $("info-drawer");
+  if (!drawer.open) drawer.show();
   $("toggle-details").classList.add("on");
   showDrawerPane(pane);
   layoutView();
 }
 
 function closeDrawer() {
-  $("info-drawer").classList.remove("open");
-  $("info-drawer").setAttribute("aria-hidden", "true");
+  const drawer = $("info-drawer");
+  if (drawer.open) drawer.close();
   $("toggle-details").classList.remove("on");
   layoutView();
 }
