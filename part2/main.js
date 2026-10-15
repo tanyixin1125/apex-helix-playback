@@ -385,7 +385,18 @@ scene.add(grid);
 
 const ride = new THREE.Group();
 scene.add(ride);
+const ghost = new THREE.Group();
+scene.add(ghost);
 const markerSprites = [];
+let compareOn = false;
+
+const CHANGES = [
+  "The chain now stays at 3 m/s, and the steepest grade falls from about 53° to 40°.",
+  "The cubic crest is replaced by a quintic with matched curvature, so this drop stays under 4g.",
+  "One 12 m turn becomes two 18 m turns, which brings the helix exit under 4g.",
+  "The cubic climb is replaced by a quintic, and the seat load stays positive.",
+  "The brake run is still the straight line to H. The final train arrives more slowly from the 32 m crest.",
+];
 
 function disposeObject(object) {
   object.traverse((node) => {
@@ -458,6 +469,40 @@ function buildRide() {
     label.position.copy(v3(marker.sample.p)).add(new THREE.Vector3(0, marker.id === "H" || marker.id === "L" ? 4.2 : 3.3, 0));
     ride.add(label);
     markerSprites.push(label);
+  }
+  buildGhost();
+}
+
+function clearGhost() {
+  while (ghost.children.length) {
+    const child = ghost.children[0];
+    ghost.remove(child);
+    disposeObject(child);
+  }
+}
+
+function buildGhost() {
+  clearGhost();
+  if (!compareOn) return;
+  const other = MODELS[modelId === "initial" ? "final" : "initial"];
+  const helix = other.helix;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(helix.r, 0.05, 8, 100),
+    new THREE.MeshBasicMaterial({ color: 0xe2b15a, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(helix.x, 0.12, -helix.y);
+  ghost.add(ring);
+
+  for (const stat of other.track.segmentStats) {
+    const samples = other.track.samples.filter((sample) => sample.seg === stat.id);
+    const pts = samples.filter((_, index) => index % 3 === 0).map((sample) => v3(sample.p));
+    if (pts.length < 2) continue;
+    const tube = new THREE.Mesh(
+      new THREE.TubeGeometry(new PointCurve(pts), Math.max(8, pts.length - 1), 0.28, 5, false),
+      new THREE.MeshBasicMaterial({ color: 0xe2b15a, transparent: true, opacity: 0.42, depthWrite: false }),
+    );
+    ghost.add(tube);
   }
 }
 
@@ -539,12 +584,29 @@ let wasPlaying = true;
 let scrubbing = false;
 let wheelSpin = 0;
 
-function resize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+function layoutView() {
+  const canvas = renderer.domElement;
+  const dock = document.querySelector(".dock");
+  const drawer = $("info-drawer");
+  const chart = $("chart-panel");
+  const top = Math.ceil(dock.getBoundingClientRect().height) + 20;
+  const left = drawer.classList.contains("open") ? Math.ceil(drawer.getBoundingClientRect().width) + 24 : 0;
+  const bottom = chart.hidden ? 0 : Math.ceil(chart.getBoundingClientRect().height) + 16;
+  const w = Math.max(1, window.innerWidth - left);
+  const h = Math.max(1, window.innerHeight - top - bottom);
+  canvas.style.top = `${top}px`;
+  canvas.style.left = `${left}px`;
+  canvas.style.right = "auto";
+  canvas.style.bottom = "auto";
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h, false);
+}
+
+function resize() {
+  layoutView();
 }
 
 function setCamera(mode) {
@@ -662,6 +724,10 @@ function updateHud(sample, stopped) {
     const row = $(`f-${key}`);
     row.querySelector("dd").textContent = text;
     row.classList.toggle("hot", (key === "an" && over) || (key === "seat" && airborne));
+  }
+  $("live-status").textContent = `${spec.name} · ${fmt(sample.v)} m/s · ${fmt(sample.aNg)} g`;
+  for (const card of document.querySelectorAll("#diff-list button")) {
+    card.classList.toggle("active", Number(card.dataset.seg) === sample.seg);
   }
   const anRow = $("f-an").querySelector("dd");
   const sub = document.createElement("small");
@@ -827,6 +893,21 @@ function wireControls() {
       if (button.dataset.model !== modelId) applyModel(button.dataset.model);
     });
   }
+  $("toggle-compare").addEventListener("click", () => setCompare(!compareOn));
+  $("toggle-details").addEventListener("click", () => {
+    if ($("info-drawer").classList.contains("open") && !$("pane-now").hidden) closeDrawer();
+    else openDrawer("now");
+  });
+  $("close-drawer").addEventListener("click", closeDrawer);
+  for (const button of document.querySelectorAll("#drawer-tabs button")) {
+    button.addEventListener("click", () => showDrawerPane(button.dataset.pane));
+  }
+  $("toggle-chart").addEventListener("click", () => {
+    const panel = $("chart-panel");
+    panel.hidden = !panel.hidden;
+    $("toggle-chart").classList.toggle("on", !panel.hidden);
+    layoutView();
+  });
   const scrub = $("scrub");
   scrub.max = String(track.duration);
   scrub.addEventListener("pointerdown", () => {
@@ -1003,18 +1084,81 @@ function resetDesmos() {
   desmosReady = false;
 }
 
+function segmentPeak(source, id) {
+  const pts = source.samples.filter((sample) => sample.seg === id);
+  return Math.max(...pts.map((sample) => sample.aNg));
+}
+
+function buildDiff() {
+  const list = $("diff-list");
+  list.replaceChildren();
+  const initial = MODELS.initial.track;
+  const finalTrackModel = MODELS.final.track;
+  initial.segmentStats.forEach((initialSeg, index) => {
+    const finalSeg = finalTrackModel.segmentStats[index];
+    const initialPeak = segmentPeak(initial, initialSeg.id);
+    const finalPeak = segmentPeak(finalTrackModel, finalSeg.id);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "diff-card";
+    button.dataset.seg = String(initialSeg.id);
+    const worse = (peak) => (peak > 4.01 ? "exceeds 4g" : "within 4g");
+    button.innerHTML = `<span class="name">${index + 1} · ${initialSeg.name} → ${finalSeg.name}</span><span class="meta">Initial ${initialSeg.length.toFixed(1)} m · ${initialSeg.time.toFixed(2)} s · peak ${initialPeak.toFixed(2)} g · ${worse(initialPeak)}</span><span class="meta">Final ${finalSeg.length.toFixed(1)} m · ${finalSeg.time.toFixed(2)} s · peak ${finalPeak.toFixed(2)} g · ${worse(finalPeak)}</span><span class="change">${CHANGES[index]}</span>`;
+    button.addEventListener("click", () => {
+      const first = track.samples.find((sample) => sample.seg === initialSeg.id);
+      if (first) clock = first.time;
+    });
+    list.append(button);
+  });
+  const totals = document.createElement("p");
+  totals.className = "lead";
+  totals.style.marginTop = "10px";
+  totals.textContent = `Whole ride: initial ${initial.length.toFixed(1)} m in ${initial.duration.toFixed(1)} s, peak ${initial.peak.aNg.toFixed(2)} g. Final ${finalTrackModel.length.toFixed(1)} m in ${finalTrackModel.duration.toFixed(1)} s, peak ${finalTrackModel.peak.aNg.toFixed(2)} g.`;
+  list.append(totals);
+}
+
+function showDrawerPane(pane) {
+  $("pane-now").hidden = pane !== "now";
+  $("pane-diff").hidden = pane !== "diff";
+  for (const button of document.querySelectorAll("#drawer-tabs button")) {
+    button.classList.toggle("on", button.dataset.pane === pane);
+  }
+}
+
+function openDrawer(pane) {
+  $("info-drawer").classList.add("open");
+  $("info-drawer").setAttribute("aria-hidden", "false");
+  $("toggle-details").classList.add("on");
+  showDrawerPane(pane);
+  layoutView();
+}
+
+function closeDrawer() {
+  $("info-drawer").classList.remove("open");
+  $("info-drawer").setAttribute("aria-hidden", "true");
+  $("toggle-details").classList.remove("on");
+  layoutView();
+}
+
+function setCompare(on) {
+  compareOn = on;
+  const button = $("toggle-compare");
+  button.classList.toggle("on", on);
+  button.setAttribute("aria-pressed", String(on));
+  buildGhost();
+  if (on) openDrawer("diff");
+  const url = new URL(location.href);
+  if (on) url.searchParams.set("compare", "1");
+  else url.searchParams.delete("compare");
+  history.replaceState(null, "", url);
+}
+
 function applyChrome() {
   const model = MODELS[modelId];
   $("kicker").textContent = model.kicker;
   $("lead").textContent = model.lead;
   $("chart-caption").textContent = model.caption;
   $("dialog-lead").textContent = model.dialogLead;
-  const link = $("desmos-link");
-  link.hidden = !model.desmosHref;
-  if (model.desmosHref) {
-    link.href = model.desmosHref;
-    link.textContent = model.desmosLabel;
-  }
   for (const button of document.querySelectorAll("#models button")) {
     button.classList.toggle("on", button.dataset.model === modelId);
     button.setAttribute("aria-pressed", String(button.dataset.model === modelId));
@@ -1037,6 +1181,7 @@ function applyModel(id, resetView = true) {
   applyChrome();
   buildRide();
   buildLegend();
+  buildDiff();
   const dialog = $("desmos-dialog");
   const dialogOpen = dialog.open;
   const activeTab = document.querySelector("#desmos-tabs button.on")?.dataset.tab || "plan";
@@ -1055,7 +1200,7 @@ function applyModel(id, resetView = true) {
 function wireResize() {
   try {
     const saved = JSON.parse(localStorage.getItem("apex-panels") || "{}");
-    for (const id of ["title-panel", "telemetry"]) {
+    for (const id of ["info-drawer"]) {
       const size = saved[id];
       const panel = $(id);
       if (!size || !panel) continue;
@@ -1090,6 +1235,7 @@ function wireResize() {
         panel.style.width = `${Math.round(width)}px`;
         panel.style.height = `${Math.round(height)}px`;
         panel.style.maxHeight = `${Math.round(height)}px`;
+        layoutView();
       };
       const up = () => {
         handle.removeEventListener("pointermove", move);
@@ -1126,6 +1272,7 @@ wireResize();
 wireDesmos();
 const requested = new URLSearchParams(location.search).get("model");
 applyModel(requested === "initial" ? "initial" : "final", false);
+if (new URLSearchParams(location.search).get("compare") === "1") setCompare(true);
 resize();
 $("boot").classList.add("done");
 

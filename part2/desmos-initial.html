@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apex Helix Part 1 — Desmos 3D</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #12151a; color: #e8eaed;
+      font: 14px/1.4 "Segoe UI", sans-serif; }
+    .wrap { display: grid; grid-template-columns: 300px 1fr; height: 100%; }
+    aside { padding: 16px 16px 24px; background: #1a1e25; border-right: 1px solid #2c323c; overflow: auto; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    p { margin: 0 0 10px; color: #aeb6c2; font-size: 13px; }
+    .seg { margin: 0 0 8px; font-size: 13px; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+    #calc { width: 100%; height: 100%; }
+    a { color: #9ec1ff; }
+    @media (max-width: 800px) {
+      .wrap { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      aside { max-height: 34vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside>
+      <h1>Apex Helix — Part 1 initial model</h1>
+      <p>Initial centreline from L(0, 0, 0) to H(100, 50, 30). Drag to rotate. Move slider <b>s</b> to run the point along the five segments.</p>
+      <div class="seg"><span class="dot" style="background:#2ec4b6"></span>Parabolic lift, t is time</div>
+      <div class="seg"><span class="dot" style="background:#ff9f1c"></span>Cubic crest and drop</div>
+      <div class="seg"><span class="dot" style="background:#c77dff"></span>One helix, R = 12 m</div>
+      <div class="seg"><span class="dot" style="background:#ff5d8f"></span>Cubic climb to P₄</div>
+      <div class="seg"><span class="dot" style="background:#4cc9f0"></span>Level brake run to H</div>
+      <p>Final refinement: <a href="./desmos.html">Part 2 Desmos 3D</a>. Ride with both models: <a href="animation.html?model=initial">animation</a>.</p>
+    </aside>
+    <div id="calc"></div>
+  </div>
+  <script src="https://www.desmos.com/api/v1.12/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <script>
+    const calc = Desmos.Calculator3D(document.getElementById("calc"), {
+      expressions: true, settingsMenu: true, zoomButtons: true, keypad: false
+    });
+    const thin = 2.5;
+    calc.setExpressions([
+      { id: "f", type: "folder", title: "Five segments", collapsed: false },
+      { id: "r1", latex: "r_1(t)=\\left(4t,\\ 2t,\\ 0.3t^{2}\\right)", folderId: "f" },
+      { id: "c1", latex: "r_1(t)", domain: { min: "0", max: "10" }, color: "#2ec4b6", lineWidth: thin, folderId: "f" },
+      { id: "r2", latex: "r_2(u)=\\left(40+16u+40u^{2}-32u^{3},\\ 20+8u-64u^{2}+56u^{3},\\ 30+24u-82u^{2}+44u^{3}\\right)", folderId: "f" },
+      { id: "c2", latex: "r_2(u)", domain: { min: "0", max: "1" }, color: "#ff9f1c", lineWidth: thin, folderId: "f" },
+      { id: "r3", latex: "r_3(t)=\\left(52+12\\cos t,\\ 20+12\\sin t,\\ 16-2t\\right)", folderId: "f" },
+      { id: "c3", latex: "r_3(t)", domain: { min: "0", max: "2\\pi" }, color: "#c77dff", lineWidth: thin, folderId: "f" },
+      { id: "r4", latex: "r_4(u)=\\left(64+32u^{2}-16u^{3},\\ 20+48u-44u^{2}+16u^{3},\\ \\left(16-4\\pi\\right)-8u+\\left(58+12\\pi\\right)u^{2}-\\left(36+8\\pi\\right)u^{3}\\right)", folderId: "f" },
+      { id: "c4", latex: "r_4(u)", domain: { min: "0", max: "1" }, color: "#ff5d8f", lineWidth: thin, folderId: "f" },
+      { id: "r5", latex: "r_5(t)=\\left(80+20t,\\ 40+10t,\\ 30\\right)", folderId: "f" },
+      { id: "c5", latex: "r_5(t)", domain: { min: "0", max: "1" }, color: "#4cc9f0", lineWidth: thin, folderId: "f" },
+      { id: "s", latex: "s=0", sliderBounds: { min: "0", max: "5", step: "0.01" }, folderId: "f" },
+      { id: "train", latex: "T=\\left\\{s\\le1:r_1(10s),s\\le2:r_2(s-1),s\\le3:r_3(2\\pi(s-2)),s\\le4:r_4(s-3),r_5(s-4)\\right\\}", hidden: true, folderId: "f" },
+      { id: "pt", latex: "T", color: "#f4d35e", pointSize: 12, folderId: "f" },
+      { id: "fp", type: "folder", title: "Points", collapsed: false },
+      { id: "L", latex: "L=(0,0,0)", label: "L", showLabel: true, folderId: "fp" },
+      { id: "P1", latex: "P_1=r_1(10)", label: "P_1", showLabel: true, folderId: "fp" },
+      { id: "P2", latex: "P_2=r_3(0)", label: "P_2", showLabel: true, folderId: "fp" },
+      { id: "P3", latex: "P_3=r_3(2\\pi)", label: "P_3", showLabel: true, folderId: "fp" },
+      { id: "P4", latex: "P_4=(80,40,30)", label: "P_4", showLabel: true, folderId: "fp" },
+      { id: "H", latex: "H=(100,50,30)", label: "H", showLabel: true, folderId: "fp" }
+    ]);
+    try {
+      calc.setMathBounds({ xmin: -10, xmax: 120, ymin: -8, ymax: 70, zmin: -8, zmax: 48 });
+    } catch (err) {}
+  </script>
+</body>
+</html>
